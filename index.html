@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ultra Battle Runtime</title>
+  <meta name="description" content="ULTRAMAN 世界生成器的外置固定战斗运行时。" />
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+  <main id="app" class="game-shell" aria-label="Ultra Battle Runtime">
+    <section id="stage" class="stage" data-enemy="golza">
+      <div class="atmosphere atmosphere-a" aria-hidden="true"></div>
+      <div class="atmosphere atmosphere-b" aria-hidden="true"></div>
+      <div class="horizon" aria-hidden="true"></div>
+
+      <div class="showcase-tools">
+        <button id="show-menu-button" class="tool-button" type="button" title="返回战斗选择">战斗选择</button>
+        <button id="mute-button" class="tool-button icon-button" type="button" title="声音开关">♪</button>
+      </div>
+
+      <header class="enemy-hud" aria-live="polite">
+        <div class="enemy-title-row">
+          <div><span id="enemy-name" class="enemy-name">哥尔赞</span><span id="boss-tag" class="boss-tag" hidden>BOSS</span></div>
+          <span id="enemy-phase" class="enemy-phase">地底怪兽</span>
+        </div>
+        <div class="hp-track enemy-hp-track" aria-label="敌人生命值"><div id="enemy-hp-fill" class="hp-fill"></div></div>
+        <div id="mercy-meter" class="mercy-meter" hidden>
+          <div class="mercy-meter-meta"><span>CALM</span><span id="mercy-meter-text">0%</span></div>
+          <div class="mercy-track"><div id="mercy-fill" class="mercy-fill"></div></div>
+        </div>
+        <div id="gate-meter" class="gate-meter" hidden>
+          <div class="gate-meter-meta"><span>HELL GATE</span><span id="gate-adaptation-text">未模仿</span><span id="gate-meter-text">0%</span></div>
+          <div class="gate-track"><div id="gate-fill" class="gate-fill"></div></div>
+        </div>
+        <div id="predation-meter" class="predation-meter" hidden>
+          <div class="predation-meter-meta"><span>PREDATION</span><span id="predation-meter-text">0%</span></div>
+          <div class="predation-track"><div id="predation-fill" class="predation-fill"></div></div>
+        </div>
+        <div id="formation-meter" class="formation-meter" hidden>
+          <div class="formation-meter-meta"><span id="formation-meter-label">TWIN LINK</span><span id="formation-meter-text">100%</span></div>
+          <div class="formation-track"><div id="formation-fill" class="formation-fill"></div></div>
+        </div>
+        <div id="static-meter" class="static-meter" hidden>
+          <div class="static-meter-meta"><span>STATIC</span><span id="static-meter-text">0%</span></div>
+          <div class="static-track"><div id="static-fill" class="static-fill"></div></div>
+        </div>
+        <div id="plasma-meter" class="plasma-meter" hidden>
+          <div class="plasma-meter-meta"><span>PLASMA / YELLOW</span><span id="plasma-meter-text">○○○</span></div>
+          <div class="plasma-track"><div id="plasma-fill" class="plasma-fill"></div></div>
+        </div>
+        <div id="interface-meter" class="interface-meter" hidden>
+          <div class="interface-meter-meta"><span id="interface-meter-label">SYSTEM</span><span id="interface-meter-text">0%</span></div>
+          <div class="interface-track"><div id="interface-fill" class="interface-fill"></div></div>
+        </div>
+      </header>
+
+      <section class="enemy-stage" aria-label="敌人">
+        <div id="enemy-sprite" class="enemy-sprite" data-enemy="golza" role="img" aria-label="怪兽战斗剪影">
+          <div class="enemy-aura"></div>
+          <div class="enemy-core">
+            <div class="kaiju-shell"></div>
+            <div class="kaiju-horn horn-left"></div><div class="kaiju-horn horn-right"></div>
+            <div class="kaiju-head"></div>
+            <div class="kaiju-eye eye-left"></div><div class="kaiju-eye eye-right"></div>
+            <div class="kaiju-chest"></div><div class="kaiju-body"></div>
+            <div class="kaiju-arm arm-left"></div><div class="kaiju-arm arm-right"></div>
+            <div class="original-part original-leg leg-left"></div><div class="original-part original-leg leg-right"></div>
+            <div class="original-part original-wing wing-left"></div><div class="original-part original-wing wing-right"></div>
+            <div class="original-part original-tail"></div><div class="original-part original-weapon"></div>
+            <div class="original-part original-orb"></div><div class="original-part original-cannon cannon-left"></div><div class="original-part original-cannon cannon-right"></div>
+            <div class="original-part original-module module-ganq"></div><div class="original-part original-module module-reicubas"></div><div class="original-part original-module module-cov"></div>
+            <div class="original-part original-spike spike-1"></div><div class="original-part original-spike spike-2"></div><div class="original-part original-spike spike-3"></div><div class="original-part original-spike spike-4"></div>
+            <svg class="belial-portrait-svg" viewBox="0 0 360 270" aria-hidden="true" focusable="false">
+              <g class="belial-svg-figure">
+                <path class="belial-svg-shadow" d="M95 238 Q180 259 271 238 Q249 268 111 265 Z"/>
+                <g class="belial-svg-legs">
+                  <path d="M145 183 L178 185 L170 249 L132 248 Z"/>
+                  <path d="M183 184 L213 181 L227 247 L188 251 Z"/>
+                  <path class="belial-svg-red" d="M153 188 L165 188 L157 238 L146 240 Z"/>
+                  <path class="belial-svg-red" d="M198 187 L210 185 L216 239 L204 240 Z"/>
+                </g>
+                <path class="belial-svg-torso" d="M126 77 L154 60 L205 61 L235 80 L226 183 L201 205 L160 204 L134 184 Z"/>
+                <path class="belial-svg-silver" d="M146 82 L159 75 L174 177 L160 190 Z"/>
+                <path class="belial-svg-red" d="M213 81 L199 73 L183 177 L198 191 Z"/>
+                <path class="belial-svg-red dim" d="M160 112 L201 112 L194 123 L165 123 Z M157 139 L203 139 L196 150 L163 150 Z"/>
+                <path class="belial-svg-core" d="M173 101 L180 93 L188 101 L184 110 L176 110 Z"/>
+                <g class="belial-svg-head">
+                  <path class="belial-svg-horn" d="M151 67 L131 12 L158 49 Z"/>
+                  <path class="belial-svg-horn" d="M207 49 L231 10 L215 68 Z"/>
+                  <path d="M146 47 L163 31 L179 40 L194 28 L218 49 L210 84 L195 95 L161 92 L147 79 Z"/>
+                  <path class="belial-svg-face" d="M153 59 L175 63 L169 72 L151 68 Z M208 58 L185 63 L191 72 L211 67 Z"/>
+                  <path class="belial-svg-jaw" d="M161 78 L197 78 L189 92 L169 92 Z"/>
+                </g>
+                <g class="belial-svg-arm belial-svg-arm-left">
+                  <path d="M135 82 L107 89 L81 126 L94 148 L122 125 L148 107 Z"/>
+                  <path class="belial-svg-red" d="M126 91 L111 99 L91 128 L100 135 L119 117 L139 103 Z"/>
+                  <path d="M94 143 L80 150 L69 143 L74 130 L91 128 Z"/>
+                </g>
+                <g class="belial-svg-arm belial-svg-arm-right">
+                  <path d="M225 82 L251 90 L279 123 L268 148 L237 124 L212 105 Z"/>
+                  <path class="belial-svg-red" d="M235 92 L251 100 L269 127 L260 136 L242 117 L221 102 Z"/>
+                  <path d="M267 143 L282 149 L292 141 L286 129 L270 128 Z"/>
+                </g>
+                <g class="belial-svg-weapon">
+                  <path class="belial-svg-weapon-shadow" d="M61 170 L298 76 L304 87 L67 181 Z"/>
+                  <path class="belial-svg-weapon-rail" d="M59 164 L299 70 L303 78 L63 172 Z"/>
+                  <path class="belial-svg-weapon-cap" d="M44 162 L65 154 L73 170 L52 180 L38 173 Z"/>
+                  <path class="belial-svg-weapon-cap" d="M292 67 L312 59 L325 67 L321 82 L301 87 Z"/>
+                  <path class="belial-svg-weapon-red" d="M72 158 L284 75 L288 79 L75 165 Z"/>
+                </g>
+              </g>
+            </svg>
+            <div class="tentacle tentacle-1"></div><div class="tentacle tentacle-2"></div><div class="tentacle tentacle-3"></div>
+            <div class="tentacle tentacle-4"></div><div class="tentacle tentacle-5"></div><div class="tentacle tentacle-6"></div>
+          </div>
+          <div class="enemy-shadow"></div>
+        </div>
+        <div id="damage-pop" class="damage-pop" aria-live="assertive"></div>
+      </section>
+
+      <div id="phase-banner" class="phase-banner" hidden><span id="phase-kicker" class="phase-kicker">BOSS PHASE</span><strong id="phase-title" class="phase-title"></strong></div>
+
+      <div id="finale-starfield" class="finale-starfield" hidden aria-hidden="true"></div>
+      <div id="tiga-world-lights-stage" class="tiga-world-lights-stage" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="finale-allies" class="finale-allies" hidden aria-hidden="true">
+        <span>美铃</span><span>健太</span><span>千草</span><span>友也</span><span>泰罗</span>
+      </div>
+      <div id="misuzu-memory-echo" class="misuzu-memory-echo" hidden aria-live="polite">
+        <span id="misuzu-memory-kicker">MEMORY</span>
+        <strong id="misuzu-memory-title"></strong>
+        <em id="misuzu-memory-line"></em>
+      </div>
+      <div id="leo-cinematic" class="leo-cinematic" hidden aria-live="polite">
+        <div class="leo-cine-sky"></div>
+        <div class="leo-cine-ground"></div>
+        <div class="leo-cine-road"><i></i><i></i><i></i><i></i><i></i></div>
+        <div id="leo-toru-runner" class="leo-toru-runner"><i class="leo-toru-head"></i><i class="leo-toru-body"></i><i class="leo-toru-leg l1"></i><i class="leo-toru-leg l2"></i></div>
+        <div class="leo-gen-silhouette"><i></i></div>
+        <div class="leo-pressure-king"><i class="leo-king-head"></i><i class="leo-king-body"></i><i class="leo-king-hammer"></i><i class="leo-king-beam"></i></div>
+        <div class="leo-child-scene">
+          <div id="leo-black-directive" class="leo-black-directive"><i class="leo-directive-eye"></i><i class="leo-directive-crystal"></i></div>
+          <i class="leo-child-node child-1"></i><i class="leo-child-node child-2"></i><i class="leo-child-node child-3"></i><i class="leo-child-node child-4"></i><i class="leo-child-node child-5"></i><i class="leo-child-node child-6"></i>
+          <div id="leo-stolen-crystal" class="leo-stolen-crystal"></div>
+        </div>
+        <div class="leo-departure-sea"><i class="leo-departure-boat"></i><i class="leo-departure-sun"></i></div>
+        <div id="leo-cine-prompt" class="leo-cine-prompt"><strong id="leo-cine-title"></strong><span id="leo-cine-subtitle"></span></div>
+      </div>
+
+      <div id="story-cinematic" class="story-cinematic" hidden aria-live="polite">
+        <div class="story-void"></div>
+        <div id="tiga-finale" class="tiga-finale" hidden aria-hidden="true">
+          <div class="tiga-finale-sea"></div>
+          <div class="tiga-finale-gatan"><i class="tiga-finale-eye"></i></div>
+          <div class="tiga-finale-statue"><i class="tiga-finale-timer"></i><i class="tiga-finale-crack c1"></i><i class="tiga-finale-crack c2"></i></div>
+          <div class="tiga-finale-petrify"></div>
+          <div class="tiga-finale-converter"><i></i><i></i><i></i></div>
+          <div class="tiga-finale-rescue-beam"></div>
+          <div class="tiga-finale-break-sparks"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="tiga-finale-world-lights"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+          <div id="tiga-light-qte" class="tiga-light-qte" hidden aria-hidden="true">
+            <div class="tiga-light-horizon"></div>
+            <div id="tiga-response-beams" class="tiga-response-beams"><i class="tiga-response-beam from-left" style="--beam-y:9%;--beam-rot:-10deg;--beam-delay:0.000s"></i><i class="tiga-response-beam from-right" style="--beam-y:26%;--beam-rot:-3deg;--beam-delay:0.035s"></i><i class="tiga-response-beam from-left" style="--beam-y:43%;--beam-rot:4deg;--beam-delay:0.070s"></i><i class="tiga-response-beam from-right" style="--beam-y:60%;--beam-rot:-10deg;--beam-delay:0.105s"></i><i class="tiga-response-beam from-left" style="--beam-y:77%;--beam-rot:-3deg;--beam-delay:0.140s"></i><i class="tiga-response-beam from-right" style="--beam-y:12%;--beam-rot:4deg;--beam-delay:0.175s"></i><i class="tiga-response-beam from-left" style="--beam-y:29%;--beam-rot:-10deg;--beam-delay:0.000s"></i><i class="tiga-response-beam from-right" style="--beam-y:46%;--beam-rot:-3deg;--beam-delay:0.035s"></i><i class="tiga-response-beam from-left" style="--beam-y:63%;--beam-rot:4deg;--beam-delay:0.070s"></i><i class="tiga-response-beam from-right" style="--beam-y:80%;--beam-rot:-10deg;--beam-delay:0.105s"></i><i class="tiga-response-beam from-left" style="--beam-y:15%;--beam-rot:-3deg;--beam-delay:0.140s"></i><i class="tiga-response-beam from-right" style="--beam-y:32%;--beam-rot:4deg;--beam-delay:0.175s"></i><i class="tiga-response-beam from-left" style="--beam-y:49%;--beam-rot:-10deg;--beam-delay:0.000s"></i><i class="tiga-response-beam from-right" style="--beam-y:66%;--beam-rot:-3deg;--beam-delay:0.035s"></i><i class="tiga-response-beam from-left" style="--beam-y:83%;--beam-rot:4deg;--beam-delay:0.070s"></i><i class="tiga-response-beam from-right" style="--beam-y:18%;--beam-rot:-10deg;--beam-delay:0.105s"></i><i class="tiga-response-beam from-left" style="--beam-y:35%;--beam-rot:-3deg;--beam-delay:0.140s"></i><i class="tiga-response-beam from-right" style="--beam-y:52%;--beam-rot:4deg;--beam-delay:0.175s"></i><i class="tiga-response-beam from-left" style="--beam-y:69%;--beam-rot:-10deg;--beam-delay:0.000s"></i><i class="tiga-response-beam from-right" style="--beam-y:86%;--beam-rot:-3deg;--beam-delay:0.035s"></i><i class="tiga-response-beam from-left" style="--beam-y:21%;--beam-rot:4deg;--beam-delay:0.070s"></i><i class="tiga-response-beam from-right" style="--beam-y:38%;--beam-rot:-10deg;--beam-delay:0.105s"></i><i class="tiga-response-beam from-left" style="--beam-y:55%;--beam-rot:-3deg;--beam-delay:0.140s"></i><i class="tiga-response-beam from-right" style="--beam-y:72%;--beam-rot:4deg;--beam-delay:0.175s"></i></div>
+            <div id="tiga-wish-stream" class="tiga-wish-stream"></div>
+            <div class="tiga-player-light-wrap">
+              <div id="tiga-player-light" class="tiga-player-light"></div>
+              <div class="tiga-player-rings"><i></i><i></i><i></i></div>
+            </div>
+            <div id="tiga-player-column" class="tiga-player-column"></div>
+            <div id="tiga-light-whiteout" class="tiga-light-whiteout"></div>
+            <div id="tiga-light-prompt" class="tiga-light-prompt">
+              <strong id="tiga-light-prompt-title">让他听见。</strong>
+              <span id="tiga-light-prompt-key">猛击 Z / ENTER / SPACE</span>
+            </div>
+          </div>
+
+          <div class="tiga-finale-glitter-ring"></div>
+        </div>
+        <div id="story-execution" class="story-execution" hidden aria-hidden="true">
+          <div class="execution-halo"></div>
+          <div class="execution-lugiel"><i class="execution-lugiel-eye"></i><i class="execution-dark-spark"></i></div>
+          <div class="execution-ginga"><i class="execution-ginga-core"></i><i class="execution-crack execution-crack-a"></i><i class="execution-crack execution-crack-b"></i></div>
+          <i class="execution-spear execution-spear-a"></i><i class="execution-spear execution-spear-b"></i><i class="execution-spear execution-spear-c"></i>
+          <div class="execution-stop-ring"></div>
+          <div class="execution-final-beam"></div>
+          <div class="execution-shards"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+
+
+        <div id="cosmos-story-vision" class="cosmos-story-vision" hidden aria-hidden="true">
+          <div class="cosmos-chaos-membrane"><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-ground-horizon"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-copy-figure"><i class="cc-head"></i><i class="cc-body"></i><i class="cc-core"></i></div>
+          <div class="cosmos-copy-seed"><i></i><i></i><i></i></div>
+          <div class="cosmos-darkness-figure"><i class="cd-back"></i><i class="cd-head"></i><i class="cd-body"></i><i class="cd-chest"></i><i class="cd-claw claw-l"></i><i class="cd-claw claw-r"></i><i class="cd-spike s1"></i><i class="cd-spike s2"></i><i class="cd-spike s3"></i><i class="cd-spike s4"></i></div>
+          <div class="cosmos-main-figure"><i class="cc-head"></i><i class="cc-body"></i><i class="cc-core"></i></div>
+          <div class="cosmos-eyes-flight"><i></i><i></i><i></i></div>
+          <div class="cosmos-pyroxene"></div>
+          <div class="cosmos-light-rain"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-monster-voices"><i class="lidorias"></i><i class="mogurudon"></i><i class="bolgils"></i></div>
+          <div class="cosmos-heart-rings"><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-header-zero"><i></i><i></i><i></i></div>
+          <div class="cosmos-lidorias-story"><i class="cls-wing wl"></i><i class="cls-wing wr"></i><i class="cls-body"></i><i class="cls-head"></i><i class="cls-eye"></i><i class="cls-chaos"></i></div>
+          <div class="cosmos-memory-lights"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-eclipse-weave"><i class="red"></i><i class="blue"></i><i class="gold"></i></div>
+          <div class="cosmos-copy-afterimages"><i></i><i></i><i></i></div>
+          <div class="cosmos-chaos-fragments"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cosmos-learning-echoes">
+            <i class="cle-lidorias"><b></b></i>
+            <i class="cle-copy"><b></b></i>
+            <i class="cle-fire"><b></b></i>
+          </div>
+          <div class="cosmos-calamity-figure">
+            <i class="ccf-back"></i><i class="ccf-head"></i><i class="ccf-body"></i><i class="ccf-core"></i>
+            <i class="ccf-arm ccf-l"></i><i class="ccf-arm ccf-r"></i>
+            <i class="ccf-spike ccf-s1"></i><i class="ccf-spike ccf-s2"></i><i class="ccf-spike ccf-s3"></i><i class="ccf-spike ccf-s4"></i>
+          </div>
+          <div class="cosmos-form-echoes"><i class="cfe-luna"></i><i class="cfe-corona"></i><i class="cfe-eclipse"></i></div>
+          <div class="cosmos-open-hands"><i class="coh-body"></i><i class="coh-head"></i><i class="coh-arm coh-l"></i><i class="coh-arm coh-r"></i><i class="coh-core"></i></div>
+          <div class="cosmos-final-wave"><i></i><i></i><i></i></div>
+          <div class="cosmos-shell-peel"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div id="misuzu-bond-vision" class="misuzu-bond-vision" hidden aria-hidden="true">
+          <div class="mbv-dark-field"><i></i><i></i><i></i><i></i></div>
+          <div class="mbv-memory-orbits">
+            <i class="mbv-memory m1"><span>小时候</span></i>
+            <i class="mbv-memory m2"><span>银河神社</span></i>
+            <i class="mbv-memory m3"><span>梦想</span></i>
+            <i class="mbv-memory m4"><span>并肩作战</span></i>
+          </div>
+          <svg class="mbv-ribbons" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
+            <defs><filter id="mbvGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <path class="mbv-thread t1" d="M160,300 C310,210 390,290 500,300 S700,345 840,260"/>
+            <path class="mbv-thread t2" d="M170,350 C300,430 420,350 500,300 S690,210 830,340"/>
+            <path class="mbv-thread t3" d="M190,225 C340,150 410,250 500,300 S655,430 815,400"/>
+            <path class="mbv-thread t4" d="M180,410 C330,520 420,390 500,300 S670,130 820,190"/>
+          </svg>
+          <div class="mbv-hikaru"><i class="mbv-head"></i><i class="mbv-body"></i><i class="mbv-spark"></i><span>小光</span></div>
+          <div class="mbv-misuzu"><i class="mbv-head"></i><i class="mbv-body"></i><i class="mbv-heart"></i><i class="mbv-chain c1"></i><i class="mbv-chain c2"></i><i class="mbv-chain c3"></i><span>美铃</span></div>
+          <div class="mbv-shared-light"></div>
+          <div class="mbv-break-flash"></div>
+        </div>
+
+        <div id="ginga-revival-vision" class="ginga-revival-vision" hidden aria-hidden="true">
+          <div class="ginga-frozen-world"><i class="gw-horizon"></i><i class="gw-lugiel"></i><i class="gw-still-particle p1"></i><i class="gw-still-particle p2"></i><i class="gw-still-particle p3"></i><i class="gw-still-particle p4"></i></div>
+          <div class="ginga-light-inflow"><i data-wave="1" style="--sx:-54.0vw;--sy:-44.0vh;--delay:0.00s;--size:2px;--hue:0deg"></i><i data-wave="1" style="--sx:54.0vw;--sy:-11.4vh;--delay:0.65s;--size:2px;--hue:29deg"></i><i data-wave="1" style="--sx:23.0vw;--sy:-54.0vh;--delay:1.30s;--size:2px;--hue:58deg"></i><i data-wave="1" style="--sx:-38.4vw;--sy:54.0vh;--delay:0.40s;--size:2px;--hue:87deg"></i><i data-wave="1" style="--sx:-54.0vw;--sy:-2.6vh;--delay:1.05s;--size:2px;--hue:116deg"></i><i data-wave="1" style="--sx:54.0vw;--sy:29.9vh;--delay:0.15s;--size:2px;--hue:145deg"></i><i data-wave="1" style="--sx:-28.8vw;--sy:-54.0vh;--delay:0.80s;--size:2px;--hue:174deg"></i><i data-wave="1" style="--sx:6.7vw;--sy:54.0vh;--delay:1.45s;--size:2px;--hue:203deg"></i><i data-wave="1" style="--sx:-54.0vw;--sy:38.7vh;--delay:0.55s;--size:2px;--hue:232deg"></i><i data-wave="1" style="--sx:54.0vw;--sy:-17.6vh;--delay:1.20s;--size:2px;--hue:261deg"></i><i data-wave="2" style="--sx:16.3vw;--sy:-54.0vh;--delay:0.30s;--size:2px;--hue:290deg"></i><i data-wave="2" style="--sx:-45.1vw;--sy:54.0vh;--delay:0.95s;--size:2px;--hue:319deg"></i><i data-wave="2" style="--sx:-54.0vw;--sy:-8.8vh;--delay:0.05s;--size:2px;--hue:348deg"></i><i data-wave="2" style="--sx:54.0vw;--sy:23.8vh;--delay:0.70s;--size:2px;--hue:17deg"></i><i data-wave="2" style="--sx:-35.5vw;--sy:-54.0vh;--delay:1.35s;--size:2px;--hue:46deg"></i><i data-wave="2" style="--sx:0.0vw;--sy:54.0vh;--delay:0.45s;--size:2px;--hue:75deg"></i><i data-wave="2" style="--sx:-54.0vw;--sy:32.6vh;--delay:1.10s;--size:2px;--hue:104deg"></i><i data-wave="2" style="--sx:54.0vw;--sy:-23.8vh;--delay:0.20s;--size:2px;--hue:133deg"></i><i data-wave="2" style="--sx:9.6vw;--sy:-54.0vh;--delay:0.85s;--size:2px;--hue:162deg"></i><i data-wave="2" style="--sx:45.1vw;--sy:54.0vh;--delay:1.50s;--size:2px;--hue:191deg"></i><i data-wave="2" style="--sx:-54.0vw;--sy:-15.0vh;--delay:0.60s;--size:2px;--hue:220deg"></i><i data-wave="2" style="--sx:54.0vw;--sy:17.6vh;--delay:1.25s;--size:2px;--hue:249deg"></i><i data-wave="2" style="--sx:-42.2vw;--sy:-54.0vh;--delay:0.35s;--size:2px;--hue:278deg"></i><i data-wave="2" style="--sx:-6.7vw;--sy:54.0vh;--delay:1.00s;--size:2px;--hue:307deg"></i><i data-wave="2" style="--sx:-54.0vw;--sy:26.4vh;--delay:0.10s;--size:2px;--hue:336deg"></i><i data-wave="2" style="--sx:54.0vw;--sy:-29.9vh;--delay:0.75s;--size:2px;--hue:5deg"></i><i data-wave="3" style="--sx:2.9vw;--sy:-54.0vh;--delay:1.40s;--size:2px;--hue:34deg"></i><i data-wave="3" style="--sx:38.4vw;--sy:54.0vh;--delay:0.50s;--size:2px;--hue:63deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:-21.1vh;--delay:1.15s;--size:2px;--hue:92deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:11.4vh;--delay:0.25s;--size:2px;--hue:121deg"></i><i data-wave="3" style="--sx:48.0vw;--sy:-54.0vh;--delay:0.90s;--size:2px;--hue:150deg"></i><i data-wave="3" style="--sx:-13.4vw;--sy:54.0vh;--delay:0.00s;--size:2px;--hue:179deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:20.2vh;--delay:0.65s;--size:2px;--hue:208deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:-36.1vh;--delay:1.30s;--size:2px;--hue:237deg"></i><i data-wave="3" style="--sx:-3.8vw;--sy:-54.0vh;--delay:0.40s;--size:2px;--hue:266deg"></i><i data-wave="3" style="--sx:31.7vw;--sy:54.0vh;--delay:1.05s;--size:2px;--hue:295deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:-27.3vh;--delay:0.15s;--size:2px;--hue:324deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:5.3vh;--delay:0.80s;--size:2px;--hue:353deg"></i><i data-wave="3" style="--sx:41.3vw;--sy:-54.0vh;--delay:1.45s;--size:2px;--hue:22deg"></i><i data-wave="3" style="--sx:-20.2vw;--sy:54.0vh;--delay:0.55s;--size:2px;--hue:51deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:14.1vh;--delay:1.20s;--size:2px;--hue:80deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:-42.2vh;--delay:0.30s;--size:2px;--hue:109deg"></i><i data-wave="3" style="--sx:-10.6vw;--sy:-54.0vh;--delay:0.95s;--size:2px;--hue:138deg"></i><i data-wave="3" style="--sx:25.0vw;--sy:54.0vh;--delay:0.05s;--size:2px;--hue:167deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:-33.4vh;--delay:0.70s;--size:2px;--hue:196deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:-0.9vh;--delay:1.35s;--size:2px;--hue:225deg"></i><i data-wave="3" style="--sx:34.6vw;--sy:-54.0vh;--delay:0.45s;--size:2px;--hue:254deg"></i><i data-wave="3" style="--sx:-26.9vw;--sy:54.0vh;--delay:1.10s;--size:2px;--hue:283deg"></i><i data-wave="3" style="--sx:-54.0vw;--sy:7.9vh;--delay:0.20s;--size:2px;--hue:312deg"></i><i data-wave="3" style="--sx:54.0vw;--sy:40.5vh;--delay:0.85s;--size:2px;--hue:341deg"></i><i data-wave="4" style="--sx:-17.3vw;--sy:-54.0vh;--delay:1.50s;--size:2px;--hue:10deg"></i><i data-wave="4" style="--sx:18.2vw;--sy:54.0vh;--delay:0.60s;--size:2px;--hue:39deg"></i><i data-wave="4" style="--sx:-54.0vw;--sy:-39.6vh;--delay:1.25s;--size:2px;--hue:68deg"></i><i data-wave="4" style="--sx:54.0vw;--sy:-7.0vh;--delay:0.35s;--size:2px;--hue:97deg"></i><i data-wave="4" style="--sx:27.8vw;--sy:-54.0vh;--delay:1.00s;--size:2px;--hue:126deg"></i><i data-wave="4" style="--sx:-33.6vw;--sy:54.0vh;--delay:0.10s;--size:2px;--hue:155deg"></i><i data-wave="4" style="--sx:-54.0vw;--sy:1.8vh;--delay:0.75s;--size:2px;--hue:184deg"></i><i data-wave="4" style="--sx:54.0vw;--sy:34.3vh;--delay:1.40s;--size:2px;--hue:213deg"></i><i data-wave="4" style="--sx:-24.0vw;--sy:-54.0vh;--delay:0.50s;--size:2px;--hue:242deg"></i><i data-wave="4" style="--sx:11.5vw;--sy:54.0vh;--delay:1.15s;--size:2px;--hue:271deg"></i><i data-wave="4" style="--sx:-54.0vw;--sy:43.1vh;--delay:0.25s;--size:2px;--hue:300deg"></i><i data-wave="4" style="--sx:54.0vw;--sy:-13.2vh;--delay:0.90s;--size:2px;--hue:329deg"></i><i data-wave="4" style="--sx:21.1vw;--sy:-54.0vh;--delay:0.00s;--size:2px;--hue:358deg"></i><i data-wave="4" style="--sx:-40.3vw;--sy:54.0vh;--delay:0.65s;--size:2px;--hue:27deg"></i><i data-wave="4" style="--sx:-54.0vw;--sy:-4.4vh;--delay:1.30s;--size:2px;--hue:56deg"></i><i data-wave="4" style="--sx:54.0vw;--sy:28.2vh;--delay:0.40s;--size:2px;--hue:85deg"></i><i data-wave="4" style="--sx:-30.7vw;--sy:-54.0vh;--delay:1.05s;--size:2px;--hue:114deg"></i><i data-wave="4" style="--sx:4.8vw;--sy:54.0vh;--delay:0.15s;--size:2px;--hue:143deg"></i><i data-wave="4" style="--sx:-54.0vw;--sy:37.0vh;--delay:0.80s;--size:2px;--hue:172deg"></i><i data-wave="4" style="--sx:54.0vw;--sy:-19.4vh;--delay:1.45s;--size:2px;--hue:201deg"></i><i data-wave="4" style="--sx:14.4vw;--sy:-54.0vh;--delay:0.55s;--size:2px;--hue:230deg"></i><i data-wave="4" style="--sx:-47.0vw;--sy:54.0vh;--delay:1.20s;--size:2px;--hue:259deg"></i></div>
+          <div class="ginga-revival-spark">
+            <i class="grs-crown"></i><i class="grs-spine"></i><i class="grs-core"></i><i class="grs-wing l"></i><i class="grs-wing r"></i><i class="grs-rainbow"></i>
+          </div>
+          <div class="ginga-charge-rings"><i></i><i></i><i></i><i></i></div>
+          <div class="ginga-revival-whiteout"></div>
+          <div class="ginga-frozen-glass"><div class="ginga-glass-cracks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="ginga-glass-fragments"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div id="nexus-himeya-vision" class="nexus-himeya-vision" hidden aria-hidden="true">
+          <div class="nhv-entry"><i class="nhv-gate"></i><i class="nhv-negoro"></i><i class="nhv-himeya-human"></i></div>
+          <div class="nhv-device" aria-hidden="true">
+            <i class="nhv-device-shell shell-l"></i><i class="nhv-device-shell shell-r"></i>
+            <i class="nhv-device-rail rail-l"></i><i class="nhv-device-rail rail-r"></i>
+            <i class="nhv-device-slit"></i><i class="nhv-device-red"></i><i class="nhv-device-gem"></i>
+          </div>
+          <div class="nhv-forest">
+            <i class="nhv-tree t1"></i><i class="nhv-tree t2"></i><i class="nhv-tree t3"></i><i class="nhv-tree t4"></i><i class="nhv-tree t5"></i><i class="nhv-tree t6"></i>
+            <div class="nhv-fireflies"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nhv-himeya-kneel"><i></i></div><div class="nhv-sera"><i></i></div>
+            <div class="nhv-lineage"><i class="holder h1"></i><i class="holder h2"></i><i class="holder h3"></i><i class="holder h4"></i><i class="holder h5"></i><span class="nhv-lineage-thread"></span></div>
+          </div>
+          <div class="nhv-night-raider"><i class="nhv-chester c1"></i><i class="nhv-chester c2"></i><i class="nhv-energy-beam b1"></i><i class="nhv-energy-beam b2"></i><i class="nhv-core-target"></i></div>
+          <div class="nhv-final">
+            <div class="nhf-sky"><i></i><i></i></div><div class="nhf-ground"></div>
+            <div class="nhf-giant nexus">
+              <i class="g-head"></i><i class="g-eye e1"></i><i class="g-eye e2"></i><i class="g-body"></i><i class="g-core"></i>
+              <i class="g-arm a1"></i><i class="g-arm a2"></i><i class="g-leg l"></i><i class="g-leg r"></i>
+              <span>NEXUS</span>
+            </div>
+            <div class="nhf-giant mephisto">
+              <i class="g-head"></i><i class="g-eye e1"></i><i class="g-eye e2"></i><i class="g-body"></i><i class="g-core"></i>
+              <i class="g-arm a1"></i><i class="g-arm a2"></i><i class="g-leg l"></i><i class="g-leg r"></i>
+              <span>MEPHISTO</span>
+            </div>
+            <div class="nhf-beam nexus"></div><div class="nhf-beam mephisto"></div><div class="nhf-impact"><i></i><i></i></div>
+            <div class="nhf-fireball"></div><div class="nhf-charge-trail"></div><div class="nhf-grapple-ring"><i></i><i></i></div>
+            <div class="nhf-core-bloom"></div><div class="nhf-whiteout"></div>
+            <div class="nhf-shot-label">异形之海 · 最后交锋</div>
+          </div>
+        </div>
+
+        <div id="nexus-legacy-vision" class="nexus-legacy-vision" hidden aria-hidden="true">
+          <div class="nexus-legacy-depth"></div>
+          <div class="nexus-ren-sequence" aria-hidden="true">
+            <div class="nrs-sky"><i class="nrs-sun"></i><i class="nrs-haze h1"></i><i class="nrs-haze h2"></i></div>
+            <div class="nrs-city"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nrs-road"></div>
+            <div class="nrs-evac"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nrs-ren">
+              <i class="nrs-head"></i><i class="nrs-body"></i><i class="nrs-leg l"></i><i class="nrs-leg r"></i>
+              <i class="nrs-arm"></i><i class="nrs-evoltruster"></i><i class="nrs-arc"></i>
+            </div>
+            <div class="nrs-memory nrs-nagi"><i class="portrait"></i><span>西条凪</span></div>
+            <div class="nrs-memory nrs-komon"><i class="portrait"></i><span>孤门</span></div>
+            <div class="nrs-memory nrs-mizuo"><i class="portrait"></i><span>瑞生</span></div>
+            <div class="nrs-memory nrs-friends"><i class="portrait"></i><span>还在等他回去的人</span></div>
+            <div class="nrs-transform-burst"><i></i><i></i><i></i><i></i></div>
+            <div class="nrs-caption">THE ONE WHO TURNS BACK TOWARD DANGER</div>
+          </div>
+          <div class="nexus-mizorogi-assist" aria-hidden="true">
+            <div class="nma-dark-field"><i></i><i></i><i></i></div>
+            <div class="nma-ground-light"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nma-mephisto original">
+              <i class="nma-head"></i><i class="nma-eye e1"></i><i class="nma-eye e2"></i><i class="nma-body"></i>
+              <i class="nma-chest"></i><i class="nma-arm a1"></i><i class="nma-arm a2"></i><i class="nma-claw"></i><i class="nma-hand-light"></i>
+              <span>MEPHISTO</span>
+            </div>
+            <div class="nma-mephisto zwei">
+              <i class="nma-head"></i><i class="nma-eye e1"></i><i class="nma-eye e2"></i><i class="nma-body"></i>
+              <i class="nma-chest"></i><i class="nma-arm a1"></i><i class="nma-arm a2"></i><i class="nma-claw"></i>
+              <span>MEPHISTO ZWEI</span>
+            </div>
+            <div class="nma-light-bind"><i></i><i></i><i></i></div>
+            <div class="nma-impact"></div>
+            <div class="nma-human-after"><i class="ha-head"></i><i class="ha-body"></i><i class="ha-arm"></i></div>
+            <div class="nma-fade"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="nexus-memory-backdrop" aria-hidden="true">
+            <i class="nexus-memory-scanline"></i>
+            <i class="nexus-memory-flare flare-a"></i>
+            <i class="nexus-memory-flare flare-b"></i>
+            <div class="nexus-memory-cityline"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nexus-memory-fairground"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nexus-memory-dust"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <svg class="nexus-ribbon-svg" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <filter id="nexusRibbonGlow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <path class="ribbon-path ribbon-red ribbon-red-a" d="M90,390 C230,300 310,195 500,300 S760,420 915,300"/>
+            <path class="ribbon-path ribbon-red ribbon-red-b" d="M90,420 C245,465 330,360 500,300 S755,220 915,330"/>
+            <path class="ribbon-path ribbon-blue ribbon-blue-a" d="M910,390 C745,300 675,190 500,300 S250,425 85,300"/>
+            <path class="ribbon-path ribbon-blue ribbon-blue-b" d="M910,425 C770,475 665,360 500,300 S245,215 85,335"/>
+            <path class="ribbon-path ribbon-white" d="M500,545 C455,455 405,390 500,300 S610,160 500,54"/>
+            <path class="ribbon-path ribbon-silver" d="M130,535 C270,470 370,435 500,300 S735,200 885,70"/>
+            <path class="ribbon-path ribbon-crowd crowd-a" d="M0,520 C180,460 310,505 500,300 S780,170 1000,120"/>
+            <path class="ribbon-path ribbon-crowd crowd-b" d="M0,80 C185,170 330,120 500,300 S760,510 1000,540"/>
+          </svg>
+          <div class="nexus-link-core"><i></i><i></i><i></i></div>
+          <div class="nexus-memory-figure nexus-himeya-figure"><i class="nf-head"></i><i class="nf-body"></i><i class="nf-coat"></i><i class="nf-camera"></i><span>姬矢准</span></div>
+          <div class="nexus-memory-figure nexus-ren-figure"><i class="nf-head"></i><i class="nf-body"></i><i class="nf-arm"></i><span>千树怜</span></div>
+          <div class="nexus-memory-figure nexus-riko-figure"><i class="nf-head"></i><i class="nf-body"></i><i class="nf-hair"></i><span>斋田莉子</span></div>
+          <div class="nexus-memory-figure nexus-nagi-figure"><i class="nf-head"></i><i class="nf-body"></i><i class="nf-shoulder"></i><span>西条凪</span></div>
+          <div class="nexus-memory-figure nexus-mizorogi-figure"><i class="nf-head"></i><i class="nf-body"></i><i class="nf-shoulder"></i><span>沟吕木真也</span></div>
+          <div class="nexus-night-raider-figures"><i></i><i></i><i></i><i></i></div>
+          <div class="nexus-city-memory"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="nexus-thread-field">
+            <i class="nexus-thread thread-red t1"></i><i class="nexus-thread thread-red t2"></i>
+            <i class="nexus-thread thread-blue t3"></i><i class="nexus-thread thread-blue t4"></i>
+            <i class="nexus-thread thread-white t5"></i><i class="nexus-thread thread-white t6"></i>
+            <i class="nexus-thread thread-silver t7"></i><i class="nexus-thread thread-silver t8"></i>
+            <i class="nexus-thread thread-crowd t9"></i><i class="nexus-thread thread-crowd t10"></i><i class="nexus-thread thread-crowd t11"></i><i class="nexus-thread thread-crowd t12"></i>
+          </div>
+          <div class="nexus-bond-knot"><i></i><i></i><i></i></div>
+          <div class="nexus-gravity-zagi"></div>
+          <div class="nexus-noa-vision"><i class="noa-head"></i><i class="noa-body"></i><i class="noa-wing wing-l"></i><i class="noa-wing wing-r"></i><i class="noa-core"></i></div>
+          <div class="nexus-final-clash" aria-hidden="true">
+            <div class="nexus-final-atmosphere"><i class="earth-limb"></i><i class="cloud-band cb-a"></i><i class="cloud-band cb-b"></i></div>
+            <div class="nexus-final-noa"><i class="fc-head"></i><i class="fc-body"></i><i class="fc-wing l"></i><i class="fc-wing r"></i><i class="fc-core"></i></div>
+            <div class="nexus-final-zagi"><i class="fc-head"></i><i class="fc-body"></i><i class="fc-eye e1"></i><i class="fc-eye e2"></i><i class="fc-core"></i></div>
+            <div class="nexus-final-beam noa-beam"></div><div class="nexus-final-beam zagi-beam"></div>
+            <div class="nexus-final-impact"><i></i><i></i><i></i></div>
+            <div id="nexus-final-mash" class="nexus-final-mash" hidden><strong>把光推回去。</strong><span>连打 Z / ENTER / SPACE</span></div>
+            <div class="nexus-zagi-fracture"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nexus-final-whiteout"></div>
+          </div>
+        </div>
+        <div class="story-sparks" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div id="story-taro" class="story-taro" hidden aria-hidden="true">
+          <div class="story-taro-ring"></div><div class="story-taro-core"></div>
+        </div>
+        <div class="story-copy">
+          <span id="story-speaker" class="story-speaker"></span>
+          <strong id="story-line" class="story-line"></strong>
+        </div>
+      </div>
+      <div id="support-callout" class="support-callout" hidden>
+        <span id="support-name" class="support-name"></span>
+        <strong id="support-line" class="support-line"></strong>
+      </div>
+
+      <section id="battle-frame" class="battle-frame" data-mode="dialogue" aria-label="战斗区域">
+        <canvas id="battle-canvas" width="960" height="360"></canvas>
+        <div id="dialogue-layer" class="dialogue-layer">
+          <div class="dialogue-cursor" aria-hidden="true">◆</div><p id="dialogue-text" class="dialogue-text"></p><span id="continue-hint" class="continue-hint">Z / Enter</span>
+        </div>
+        <div id="attack-layer" class="attack-layer" hidden>
+          <div class="attack-track"><div class="attack-zone normal-zone"></div><div class="attack-zone good-zone"></div><div id="perfect-zone" class="attack-zone perfect-zone"></div><div id="attack-cursor" class="attack-cursor"></div></div>
+          <div id="attack-grade" class="attack-grade"></div><div class="attack-help">在光标接近中心时按 Z / Enter</div>
+        </div>
+        <div id="choice-layer" class="choice-layer" hidden>
+          <div class="choice-heading"><span id="choice-title">技能</span><span class="choice-help">X / Esc 返回</span></div>
+          <div id="choice-list" class="choice-list"></div><div id="choice-description" class="choice-description"></div>
+        </div>
+      </section>
+
+      <section class="player-hud" aria-label="玩家状态">
+        <div class="player-identity"><span id="player-name" class="player-name">迪迦奥特曼</span><span id="player-form" class="player-form">复合型</span><span id="player-drain-status" class="player-drain-status" hidden></span><span id="life-recover-pop" class="life-recover-pop"></span></div>
+        <div class="resource-stack">
+          <div class="player-health resource-row"><span class="resource-label hp-label">HP</span><div class="hp-track player-hp-track"><div id="player-hp-fill" class="hp-fill"></div></div><span id="player-hp-text" class="resource-number">100 / 100</span></div>
+          <div id="player-energy-row" class="player-energy resource-row"><span class="resource-label energy-label">EN</span><div class="energy-track"><div id="player-energy-fill" class="energy-fill"></div></div><span id="player-energy-text" class="resource-number">45 / 100</span></div>
+          <div id="original-adapt-row" class="original-adapt resource-row" hidden><span class="resource-label original-adapt-label">ADAPT</span><div class="original-adapt-track"><div id="original-adapt-fill" class="original-adapt-fill"></div></div><span id="original-adapt-text" class="resource-number">0%</span></div>
+        </div>
+      </section>
+
+      <nav id="command-menu" class="command-menu" aria-label="战斗指令">
+        <button class="command active" data-command="ATTACK"><span class="command-key">1</span><span>攻击</span></button>
+        <button class="command" data-command="SKILL"><span class="command-key">2</span><span>技能</span></button>
+        <button class="command" data-command="ACT"><span class="command-key">3</span><span>行动</span></button>
+        <button class="command" data-command="ITEM"><span class="command-key">4</span><span>道具</span></button>
+      </nav>
+      <div class="micro-help">← → / A D 选择　·　Z / Enter 确认　·　X / Esc 返回</div>
+
+      <div id="result-panel" class="result-panel" hidden>
+        <div class="result-card"><span class="result-kicker">BATTLE RESULT</span><h2 id="result-title">VICTORY</h2><p id="result-text"></p><div class="result-actions"><button id="replay-button" class="showcase-primary" type="button">再战一次</button><button id="result-menu-button" class="showcase-secondary" type="button">返回战斗选择</button></div></div>
+      </div>
+
+      <div id="showcase-menu" class="showcase-menu" hidden>
+        <div class="showcase-shell">
+          <div class="showcase-heading"><span class="showcase-kicker">ULTRA BATTLE RUNTIME</span><h1>战斗系统展示版</h1><p>先选择奥特曼，再进入怪兽战。银河线已重构：雷电达兰比尔教会 Ultra Live；超级古兰德王把战斗拉进美铃的意识深处；黑暗路基艾尔则真正停止战场的时间，让银河去争夺“下一刻”。</p></div>
+
+          <section class="showcase-section player-picker">
+            <div class="showcase-section-title"><span>选择奥特曼</span><span id="selected-player-summary" class="selected-player-summary"></span></div>
+            <div id="ultraman-cards" class="ultraman-cards"></div>
+          </section>
+
+          <section class="showcase-section battle-picker">
+            <div class="showcase-section-title"><span>选择战斗</span><span>17 ENCOUNTERS</span></div>
+            <div id="battle-cards" class="battle-cards"></div>
+          </section>
+
+          <div class="showcase-footer"><span>键盘：方向键 / WASD · Z / Enter · X / Esc</span><span>Showcase Build v2.5</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
