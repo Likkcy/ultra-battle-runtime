@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.8.0
+- Added the external Light Memory Terminal as the persistent source of truth for 15 fixed memory battles, five route-form unlocks, and five original-universe disaster-stone trials.
+- Completed memory battles can be replayed only with their matching Ultraman; original trials become available for replay only after a story-launched attempt and require an unlocked form.
+- Added local progress export/import. SillyTavern MVU is no longer required for terminal progress display.
+- Story battle results still expose a copyable `LightTrialBattleResult` payload so the card can narrate battle aftermath without duplicating progress state.
+
 ## v2.7.4
 - Added the supplied Belial battle track as `original_belial_battle.ogg`.
 - Belial uses one continuous loop across phase 1, the galaxy chase, phase 3, and the final Deathcium clash; phase changes do not restart playback.

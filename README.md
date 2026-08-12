@@ -1,6 +1,14 @@
-# Ultra Battle Runtime — Showcase Build v2.7.4
+# Ultra Battle Runtime — Light Memory Terminal v2.8.0
 
 UBR 是一个可静态部署的剧情联动 Web 战斗运行时原型。当前版本仍然使用纯 HTML / CSS / JavaScript，不需要 npm 构建。
+
+## v2.8.0：光之记忆终端
+
+- 访问 `?terminal=1` 可打开独立进度终端。
+- 终端在当前站点的浏览器 `localStorage` 保存十五场记忆战、形态解锁和五场本宇宙试炼开放记录。
+- 记忆战完成后才可复战，且固定使用对应奥特曼；每条路线三战完成后解锁相应形态。
+- 本宇宙试炼必须先由剧情以 `route=original` 正式调用一次，之后才会出现在终端复战列表。
+- “资料”页支持进度 JSON 导出与导入；替换 GitHub Pages 文件不会主动清空同源浏览器进度。
 
 
 
