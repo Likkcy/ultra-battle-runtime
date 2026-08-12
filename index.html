@@ -8,6 +8,28 @@
   <link rel="stylesheet" href="./styles/main.css" />
 </head>
 <body>
+  <section id="light-memory-terminal" class="memory-terminal" hidden aria-label="光之记忆终端">
+    <div class="memory-terminal-shell">
+      <header class="memory-terminal-hero">
+        <div class="memory-terminal-seal" aria-hidden="true"><i></i></div>
+        <div><span>LIGHT MEMORY TERMINAL</span><h1>光之记忆终端</h1><p>这里保存适格者亲历过的战斗。进度只记录在当前浏览器中，不再依赖酒馆楼层变量。</p></div>
+        <strong id="memory-total">0 / 15</strong>
+      </header>
+      <nav class="memory-tabs" aria-label="终端页面">
+        <button type="button" class="active" data-memory-tab="routes">记忆世界</button>
+        <button type="button" data-memory-tab="ultras">光之形态</button>
+        <button type="button" data-memory-tab="trials">本宇宙试炼</button>
+        <button type="button" data-memory-tab="data">档案管理</button>
+      </nav>
+      <main class="memory-terminal-body">
+        <section data-memory-panel="routes"><div class="memory-section-heading"><div><span>PARALLEL WORLD RECORDS</span><h2>五束光的记忆</h2></div><p>已完成的固定战斗可以用该世界对应的奥特曼再次挑战。</p></div><div id="memory-route-grid" class="memory-route-grid"></div></section>
+        <section data-memory-panel="ultras" hidden><div class="memory-section-heading"><div><span>UNLOCKED LIGHT</span><h2>可调用的奥特曼形态</h2></div><p>完成某个世界的三枚战斗印记后，形态才会回应本宇宙的试炼。</p></div><div id="memory-ultra-grid" class="memory-ultra-grid"></div></section>
+        <section data-memory-panel="trials" hidden><div class="memory-section-heading"><div><span>HOMEWORLD TRIALS</span><h2>灾害之石试炼</h2></div><p>只有正文中正式遭遇并结算过的试炼，才会在此开放复战。</p></div><label class="memory-ultra-select">出战形态<select id="memory-trial-player"></select></label><div id="memory-trial-grid" class="memory-trial-grid"></div></section>
+        <section data-memory-panel="data" hidden><div class="memory-section-heading"><div><span>LOCAL ARCHIVE</span><h2>浏览器档案</h2></div><p>导出可以迁移进度；导入只接受本终端生成的 JSON。</p></div><div class="memory-data-actions"><button id="memory-export" type="button">导出进度</button><label>导入进度<input id="memory-import" type="file" accept="application/json,.json" /></label></div><p id="memory-data-state" class="memory-data-state" aria-live="polite"></p></section>
+      </main>
+      <footer class="memory-terminal-footer"><span>LOCAL SAVE · NO MVU DEPENDENCY</span><button id="memory-refresh" type="button">刷新记录</button></footer>
+    </div>
+  </section>
   <main id="app" class="game-shell" aria-label="Ultra Battle Runtime">
     <section id="stage" class="stage" data-enemy="golza">
       <div class="atmosphere atmosphere-a" aria-hidden="true"></div>
@@ -421,7 +443,7 @@
       <div class="micro-help">← → / A D 选择　·　Z / Enter 确认　·　X / Esc 返回</div>
 
       <div id="result-panel" class="result-panel" hidden>
-        <div class="result-card"><span class="result-kicker">BATTLE RESULT</span><h2 id="result-title">VICTORY</h2><p id="result-text"></p><section id="result-transfer" class="result-transfer" hidden><strong>把战果带回酒馆</strong><p>点击复制，回到 SillyTavern 后粘贴并发送。正文会据此结算本场记忆战。</p><textarea id="result-payload" readonly aria-label="可复制的光之试炼战果"></textarea><button id="copy-result-button" class="showcase-primary" type="button">复制战果</button><span id="copy-result-state" aria-live="polite"></span></section><div class="result-actions"><button id="replay-button" class="showcase-primary" type="button">再战一次</button><button id="result-menu-button" class="showcase-secondary" type="button">返回战斗选择</button></div></div>
+        <div class="result-card"><span class="result-kicker">BATTLE RESULT</span><h2 id="result-title">VICTORY</h2><p id="result-text"></p><section id="result-transfer" class="result-transfer" hidden><strong>战斗印记已保存</strong><p>外部终端已直接记录本战。复制下面的战果并发回 SillyTavern，只是为了让正文准确续写战后情节。</p><textarea id="result-payload" readonly aria-label="可复制的光之试炼战果"></textarea><button id="copy-result-button" class="showcase-primary" type="button">复制战果摘要</button><span id="copy-result-state" aria-live="polite"></span></section><div class="result-actions"><button id="replay-button" class="showcase-primary" type="button">再战一次</button><button id="result-menu-button" class="showcase-secondary" type="button">打开光之记忆终端</button></div></div>
       </div>
 
       <div id="showcase-menu" class="showcase-menu" hidden>
