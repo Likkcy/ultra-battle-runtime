@@ -7200,7 +7200,7 @@ export class BattleRuntime {
     const detail = {
       type: "BATTLE_FINISHED",
       protocolVersion: this.bridgeContext?.protocolVersion ?? "1.0.0",
-      runtimeVersion: this.bridgeContext?.runtimeVersion ?? "2.7.4",
+      runtimeVersion: this.bridgeContext?.runtimeVersion ?? "2.7.4-card-bridge.2",
       resultId: this.bridgeContext?.requestId
         ? `${this.bridgeContext.requestId}:${result}`
         : `showcase:${Date.now()}:${result}`,

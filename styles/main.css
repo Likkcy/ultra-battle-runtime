@@ -1195,6 +1195,12 @@ canvas {
 .result-card { width: min(520px, 100%); padding: 34px; border: 1px solid rgba(255,255,255,.17); background: rgba(7,11,16,.91); box-shadow: 0 24px 70px rgba(0,0,0,.42); text-align: center; }
 .result-card h2 { margin: 7px 0 10px; font-size: clamp(34px, 5vw, 56px); letter-spacing: .12em; }
 .result-card p { color: rgba(235,241,246,.52); font-size: 13px; }
+.result-transfer { margin-top: 20px; padding: 17px; border: 1px solid rgba(126,233,255,.3); background: rgba(20,39,52,.68); text-align: left; }
+.result-transfer strong { display: block; color: #9ceeff; letter-spacing: .08em; }
+.result-transfer p { margin: 6px 0 12px; line-height: 1.6; }
+.result-transfer textarea { width: 100%; min-height: 128px; resize: vertical; padding: 11px; border: 1px solid rgba(255,255,255,.14); background: #03070c; color: #dffaff; font: 11px/1.55 ui-monospace,monospace; }
+.result-transfer button { margin-top: 10px; width: 100%; }
+.result-transfer span { display: block; min-height: 1.4em; margin-top: 8px; color: #91dfc4; font-size: 11px; text-align: center; }
 .result-actions { display: flex; justify-content: center; gap: 10px; margin-top: 24px; }
 .showcase-primary,
 .showcase-secondary { border: 1px solid rgba(255,255,255,.24); padding: 10px 16px; cursor: pointer; color: #fff; font: inherit; }

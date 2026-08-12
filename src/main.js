@@ -9,7 +9,7 @@ let activePlayerKey = "tiga";
 let activeBridgeRequest = null;
 const handledRequestIds = new Set();
 const UBR_PROTOCOL_VERSION = "1.0.0";
-const UBR_RUNTIME_VERSION = "2.7.4-card-bridge.1";
+const UBR_RUNTIME_VERSION = "2.7.4-card-bridge.2";
 const routeRegistry = Object.freeze({
   tiga: { playerId: "tiga", battles: ["golza", "kyrieloid", "gatanothor"] },
   ginga: { playerId: "ginga", battles: ["thunder-darambia", "super-grand-king", "dark-lugiel"] },
@@ -31,6 +31,41 @@ const resultTitle = document.querySelector("#result-title");
 const resultText = document.querySelector("#result-text");
 const replayButton = document.querySelector("#replay-button");
 const resultMenuButton = document.querySelector("#result-menu-button");
+const resultTransfer = document.querySelector("#result-transfer");
+const resultPayload = document.querySelector("#result-payload");
+const copyResultButton = document.querySelector("#copy-result-button");
+const copyResultState = document.querySelector("#copy-result-state");
+
+function buildLightTrialResultPayload(detail) {
+  return `【提交光之记忆战果】\n<LightTrialBattleResult version="1.2.0">\n${JSON.stringify({
+    resultId: detail.resultId,
+    requestId: detail.requestId,
+    route: detail.route,
+    battleId: detail.battleId,
+    outcome: detail.outcome ?? detail.result,
+    turns: detail.turns,
+    resultData: {
+      player: detail.player,
+      enemy: detail.enemy,
+      sparkDollAcquired: detail.sparkDollAcquired,
+      sparkDollsAcquired: detail.sparkDollsAcquired
+    },
+    routeState: detail.routeState ?? {}
+  }, null, 2)}\n</LightTrialBattleResult>`;
+}
+
+async function copyBattleResult() {
+  const text = resultPayload.value;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    resultPayload.focus();
+    resultPayload.select();
+    document.execCommand("copy");
+  }
+  copyResultState.textContent = "已复制；回到酒馆粘贴并发送即可结算。";
+}
 
 function difficultyLabel(value) {
   if (value === "BOSS") return "BOSS";
@@ -264,6 +299,15 @@ window.addEventListener("ubr:battle-finished", (event) => {
         : detail.result === "victory" || detail.result === "mercy"
           ? (playerRegistry[activePlayerKey]?.hideEnergy ? `剩余 HP ${Math.ceil(detail.player.hp)}` : `剩余 HP ${Math.ceil(detail.player.hp)} · EN ${Math.round(detail.player.energy)}`)
           : "这场战斗结束了。你可以立即重试，或切换到另一只怪兽。";
+    if (detail?.requestId && detail?.route && detail?.battleId) {
+      resultPayload.value = buildLightTrialResultPayload(detail);
+      resultTransfer.hidden = false;
+      copyResultState.textContent = "若自动回填没有生效，请使用复制战果。";
+    } else {
+      resultTransfer.hidden = true;
+      resultPayload.value = "";
+      copyResultState.textContent = "";
+    }
     resultPanel.hidden = false;
   }, 550);
 });
@@ -278,6 +322,7 @@ muteButton.addEventListener("click", async () => {
 });
 replayButton.addEventListener("click", () => { sound.play("confirm"); if (activeBattleKey && battleRegistry[activeBattleKey]) startShowcaseBattle(activeBattleKey); });
 resultMenuButton.addEventListener("click", () => { sound.play("select"); showShowcaseMenu(); });
+copyResultButton.addEventListener("click", copyBattleResult);
 
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
