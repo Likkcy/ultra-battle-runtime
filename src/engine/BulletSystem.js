@@ -1,3 +1,4 @@
+import { getKaiserImage, kaiserSequence } from "./KaiserBelialAssets.js";
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const CARDINAL_KEYS = {
@@ -130,6 +131,23 @@ export class BulletSystem {
         return;
       }
 
+      if (this.mode === "kaiser" && ["z", "enter", " "].includes(key)) {
+        if (this.running) event.preventDefault();
+        const now=performance.now();
+        this.kaiserZHeld=true;
+        if(this.kaiserSpecial==="chase"){
+          if(!event.repeat && now>=(this.kaiserShotCooldownUntil??0)){
+            this.kaiserShotCooldownUntil=now+135;
+            const d=this.dpr;
+            this.addBullet({type:"kaiserFriendlyShot",x:this.player.x+8*d,y:this.player.y,vx:620*d,vy:0,r:4*d,damage:0,life:1500,friendly:true});
+            this.effects.push({type:"originalShot",x:this.player.x,y:this.player.y,age:0,life:150,radius:15*d});
+          }
+        } else if(this.kaiserSpecial!=="final" && !event.repeat){
+          this.kaiserGuardQueuedUntil=now+185;
+        }
+        return;
+      }
+
       if (this.mode === "original" && ["z", "enter", " "].includes(key)) {
         if (this.running) event.preventDefault();
         if (this.belialFinalClashMode) {
@@ -150,6 +168,7 @@ export class BulletSystem {
       const key = event.key.toLowerCase();
       this.keys.delete(key);
       if (this.belialFinalClashMode && ["z", "enter", " "].includes(key)) this.belialClashHeld = false;
+      if (this.mode === "kaiser" && ["z", "enter", " "].includes(key)) this.kaiserZHeld = false;
     };
   }
 
@@ -309,6 +328,34 @@ export class BulletSystem {
     this.belialAvatarLastX = this.belialAvatarX;
     this.belialAvatarLastY = this.belialAvatarY;
     this.belialFlightShotAt = 0;
+    this.kaiserBattle = options.kaiserBattle ?? false;
+    this.kaiserPhase = Math.max(0,Math.min(2,Number(options.kaiserPhase ?? 0)||0));
+    this.kaiserTurn = Math.max(1,Number(options.kaiserTurn ?? 1)||1);
+    this.kaiserSpecial = options.kaiserSpecial ?? null;
+    this.kaiserVisualForm = options.kaiserVisualForm ?? (this.kaiserPhase===0?"cloak":this.kaiserPhase===1?"nocloak":"arc");
+    this.kaiserZHeld=false;
+    this.kaiserGuardQueuedUntil=0;
+    this.kaiserShotCooldownUntil=0;
+    this.kaiserCanvasPoseKey=this.kaiserVisualForm==="cloak"?"cloakIdle":this.kaiserVisualForm==="nocloak"?"noCloakIdle":"arcIdle";
+    this.kaiserCanvasPoseStarted=0;
+    this.kaiserCanvasPoseFps=4.2;
+    this.kaiserCanvasPoseLoop=true;
+    this.kaiserCanvasX=this.canvas.width*.5;
+    this.kaiserCanvasY=this.canvas.height*.23;
+    this.kaiserCorridorProgress=0;
+    this.kaiserDashUntil=0;
+    this.kaiserDashCooldownUntil=0;
+    this.kaiserDashWasActive=false;
+    this.kaiserHeartSpawned=false;
+    this.kaiserFinalCoreBroken=false;
+    this.kaiserStars=Array.from({length:180},(_,i)=>({x:((i*73)%997)/997,y:((i*191)%991)/991,z:.18+((i*47)%100)/100*.82,tw:((i*31)%97)/97}));
+    this.kaiserPreviewColor=null;
+    this.kaiserPreviewIndex=-1;
+    this.kaiserSlashPreludeUntil=0;
+    this.kaiserSlashEntryStart=0;
+    this.kaiserSlashEntryUntil=0;
+    this.kaiserCanvasPoseReturnAt=Infinity;
+    this.kaiserAbsorbCenter=null;
     this.fiveLaneMode = false;
     this.fiveLaneLeftX = this.canvas.width * .44;
     this.fiveLaneRightX = this.canvas.width * .56;
@@ -507,6 +554,7 @@ export class BulletSystem {
     else if (this.mode === "prophecy") this.updateProphecyPlayer(dt, now);
     else if (this.mode === "stasis") this.updateStasisPlayer(dt, now);
     else if (["ginga", "mirror", "freeze", "memory", "siege"].includes(this.mode)) this.updateGingaPlayer(dt, now);
+    else if (this.mode === "kaiser") this.updateKaiserPlayer(dt, now);
     else this.updateDodgePlayer(dt);
 
     this.runPattern();
@@ -1149,7 +1197,422 @@ export class BulletSystem {
     if (this.patternSet === "original_belial_abyss") return this.runBelialAbyssPattern();
     if (this.patternSet === "original_belial_final") return this.runBelialFinalClashPattern();
     if (this.patternSet === "original_belial") return this.runOriginalBelialPattern();
+    if (this.patternSet === "trial_kaiser_chase") return this.runKaiserChasePattern();
+    if (this.patternSet === "trial_kaiser_half") return this.runKaiserHalfPattern();
+    if (this.patternSet === "trial_kaiser_final") return this.runKaiserFinalCorridorPattern();
+    if (this.patternSet === "trial_kaiser_belial") return this.runKaiserBelialPattern();
     return this.runGolzaPattern();
+  }
+
+
+  kaiserCue(key,atMs,callback){ return this.originalCue(`kaiser-${key}`,atMs,callback); }
+
+  kaiserSfx(name,minGap=0,payload={}){
+    const now=performance.now();
+    this.kaiserSfxTimes??=new Map();
+    const last=this.kaiserSfxTimes.get(name)??-Infinity;
+    if(now-last<Math.max(0,minGap))return;
+    this.kaiserSfxTimes.set(name,now);
+    this.callbacks.onKaiserSfx?.(name,payload);
+  }
+
+  kaiserPoseFps(key, requested=8){
+    const raw=Math.max(1,Number(requested)||8);
+    // No-cloak Belial is the hand-to-hand form: his idle needs enough frame cadence to avoid
+    // looking like a frozen cut-out after the phase-I chase. Cloak remains slower and heavier.
+    if(/nocloak.*idle/i.test(key))return Math.min(raw,4.45);
+    if(/arc.*idle/i.test(key))return Math.min(raw,3.9);
+    if(/idle|chasea|arcfinala/i.test(key))return Math.min(raw,3.4);
+    if(/tear|shift|absorb|whiteout/i.test(key))return Math.min(raw,4.8);
+    return Math.min(raw,6.6);
+  }
+
+  setKaiserCanvasPose(key,{fps=8,loop=true,x=null,y=null}={}){
+    this.kaiserCanvasPoseKey=key;this.kaiserCanvasPoseStarted=this.elapsed;this.kaiserCanvasPoseFps=this.kaiserPoseFps(key,fps);this.kaiserCanvasPoseLoop=loop;
+    const frames=kaiserSequence(key);
+    this.kaiserCanvasPoseReturnAt=loop?Infinity:this.elapsed+Math.max(420,(Math.max(1,frames.length)/Math.max(1,this.kaiserCanvasPoseFps))*1000+90);
+    if(x!=null)this.kaiserCanvasX=x;if(y!=null)this.kaiserCanvasY=y;
+  }
+
+  updateKaiserPlayer(dt,now){
+    this.updateDodgePlayer(dt);
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height;
+    if(this.kaiserSpecial==="chase" && this.elapsed<4500){
+      const p=15*d,left=w*.12,right=w*.88,top=h*.12,bottom=h*.88;
+      this.player.x=clamp(this.player.x,left+p,right-p);this.player.y=clamp(this.player.y,top+p,bottom-p);
+    }
+    if(this.kaiserSpecial==="half"){
+      const shrink=clamp(this.elapsed/6500,0,1),left=w*(.245*shrink),right=w*(1-.245*shrink),pad=this.player.radius*d+7*d;
+      this.player.x=clamp(this.player.x,left+pad,right-pad);
+      this.player.y=clamp(this.player.y,14*d,h-14*d);
+    }
+    if(this.kaiserSpecial==="final"){
+      // Final corridor rule: holding Z is one continuous charge state.  The old implementation
+      // pulsed 720 ms of charge followed by a hidden 190 ms cooldown, so a player holding Z could
+      // still take damage in the tiny gaps.  There is no gap now: release Z to stop charging.
+      const dashing=!!this.kaiserZHeld;
+      if(dashing && !this.kaiserDashWasActive){
+        this.effects.push({type:"kaiserDash",x:this.player.x,y:this.player.y,age:0,life:720,radius:36*d});
+        this.kaiserSfx("dash",0);
+      }
+      if(dashing){
+        this.player.x=clamp(this.player.x+390*d*dt,18*d,w-20*d);
+        // Keep legacy flashing/feedback in sync with the charge, while actual damage immunity is
+        // enforced explicitly in hitPlayer so every final-corridor hazard obeys the same rule.
+        this.player.invulnerableUntil=Math.max(this.player.invulnerableUntil,now+72);
+      }
+      // Never magnetise the player toward the left edge. Between boosts their world position is
+      // stable; the corridor itself supplies the feeling of forward speed.
+      this.player.x=clamp(this.player.x,18*d,w-20*d);
+      this.player.y=clamp(this.player.y,16*d,h-16*d);
+      this.kaiserDashing=dashing;
+      this.kaiserDashWasActive=dashing;
+    }
+  }
+
+  kaiserSpawnWaveChain({from="left",baseY=null,amplitude=42,wavelength=92,count=22,speed=325,phase=0,damage=9,color="red",spacing=13,wobble=.00125}={}){
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height;
+    const y0=baseY??h*(.28+Math.random()*.46),dir=from==="left"?1:-1;
+    const waveId=`wave-${Math.round(this.elapsed)}-${Math.random().toString(36).slice(2,6)}`;
+    this.kaiserSfx("projectile",135);
+    for(let i=0;i<count;i++){
+      const offset=i*spacing*d;
+      const x=from==="left"?-18*d-offset:w+18*d+offset;
+      const localPhase=phase+i*spacing/(wavelength*d)*Math.PI*2;
+      const y=y0+Math.sin(localPhase)*amplitude*d;
+      this.addBullet({type:"kaiserOrb",x,y,vx:dir*speed*d,vy:0,r:(4.1+(i%5===0?.75:0))*d,damage,life:5600,kaiserColor:color,waveNode:true,waveId,waveBaseY:y0,waveAmplitude:amplitude*d,wavePhase:localPhase,waveWobble:wobble});
+    }
+  }
+
+  kaiserSpawnLightning({x=null,big=false,delay=0,damage=null}={}){
+    const d=this.dpr;
+    this.addBullet({type:"kaiserLightning",x:x??this.canvas.width*(.1+Math.random()*.8),y:this.canvas.height*.52,radius:(big?42:22)*d,warningMs:(big?760:430)*this.telegraphScale,strikeMs:big?430:270,life:(big?1320:850)*this.telegraphScale,damage:damage??(big?20:12),big,spriteKey:big?(Math.random()<.5?"lightningBigA":"lightningBigB"):(Math.random()<.5?"lightningA":"lightningB"),delay});
+  }
+
+  kaiserSpawnSweep({color="orange",orientation="h",fromRight=false,delay=0,damage=15,warningMs=120,activeMs=920}={}){
+    const d=this.dpr;
+    let key=color==="orange"?"slashOrangeH":"slashBlueH";
+    if(orientation==="d")key=color==="orange"?"slashOrangeD":"slashBlueD";
+    if(orientation==="r")key=color==="orange"?"slashOrangeR":"slashBlueR";
+    const warn=Math.max(150,warningMs*this.telegraphScale);
+    this.addBullet({type:"kaiserSweep",colorMode:color,orientation,fromRight,warningMs:warn,activeMs,life:warn+activeMs+220,damage,key,delay,width:46*d});
+    this.setKaiserCanvasPose(orientation==="h"?"staffH":orientation==="d"?"staffD":"staffR",{fps:6.4,loop:false});
+  }
+
+  kaiserScheduleSweepScript(key,start,colors,orientations,{spacing=1120,fromRight=false,damage=15}={}){
+    // Every announced slash has its own colour pulse followed by a neutral beat.  Without that
+    // neutral gap, ORANGE-ORANGE or BLUE-BLUE reads like one long flash and the player cannot
+    // tell how many strikes were announced.
+    const colorOnMs=310,neutralMs=190,stepMs=colorOnMs+neutralMs,previewLead=360;
+    const sequenceMs=colors.length*stepMs,previewDuration=sequenceMs+previewLead;
+    this.kaiserCue(`${key}-preview`,start,()=>{
+      // Read the eye colour first. Belial stays above the combat box until the preview finishes.
+      if(this.kaiserSpecial==null){
+        this.kaiserSlashPreludeUntil=this.elapsed+previewDuration;
+        this.kaiserSlashEntryStart=this.kaiserSlashPreludeUntil;
+        this.kaiserSlashEntryUntil=this.kaiserSlashEntryStart+560;
+      }
+      this.addBullet({type:"kaiserColorPreview",colors:[...colors],stepMs,colorOnMs,sequenceMs,life:previewDuration,damage:0});
+    });
+    colors.forEach((color,i)=>this.kaiserCue(`${key}-sweep-${i}`,start+previewDuration+i*spacing,()=>{
+      if(i===0&&this.kaiserSpecial==null){this.kaiserSlashEntryStart=this.elapsed;this.kaiserSlashEntryUntil=this.elapsed+560;}
+      this.kaiserSpawnSweep({color,orientation:orientations[i%orientations.length],fromRight:typeof fromRight==="function"?fromRight(i):!!fromRight,damage});
+    }));
+    return start+previewDuration+Math.max(0,colors.length-1)*spacing+980;
+  }
+
+  kaiserSpawnScythe({direction="h",fromRight=false,delay=0}={}){
+    const key=direction==="h"?(fromRight?"scytheB":"scytheA"):direction==="d"?"scytheC":"scytheD";
+    this.addBullet({type:"kaiserScythe",key,direction,fromRight,warningMs:430*this.telegraphScale,travelMs:780,life:1400*this.telegraphScale,damage:20,delay,width:46*this.dpr});
+    this.setKaiserCanvasPose("staffD",{fps:6.6,loop:false});
+  }
+
+  kaiserSpawnBeam({orientation="v",position=.5,delay=0,final=false,direction=1}={}){
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height,arcForm=this.kaiserVisualForm==="arc";
+    let x1,x2,y1,y2;
+    if(orientation==="v"){x1=x2=w*position;y1=arcForm?h*.18:0;y2=h;}
+    else if(orientation==="h"){x1=0;x2=w;y1=y2=h*position;}
+    else if(orientation==="d"){x1=0;y1=direction>0?0:h;x2=w;y2=direction>0?h:0;}
+    const width=(final?(arcForm?86:70):44)*d,fireMs=final?(arcForm?1850:1250):680;
+    const warningMs=(final?(arcForm?1080:880):620)*this.telegraphScale;
+    this.addBullet({type:"kaiserBeam",x1,y1,x2,y2,width,warningMs,fireMs,life:(warningMs+fireMs+420),damage:final?22:17,final,arcForm,delay});
+    this.kaiserSfx(final?"beamCharge":"beamCharge",260);
+    this.setKaiserCanvasPose(arcForm?"arcAttackA":"beamAction",{fps:6.4,loop:false});
+  }
+
+  kaiserSpawnTargetedBeam({fromX=null,fromY=null,targetX=null,targetY=null,warningMs=780,fireMs=820,width=48,damage=18,final=false}={}){
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height;
+    const sx=fromX??w*.79,sy=fromY??h*.16,tx=targetX??this.player.x,ty=targetY??this.player.y;
+    const dx=tx-sx,dy=ty-sy,len=Math.hypot(dx,dy)||1,extend=Math.max(w,h)*1.45;
+    const ex=sx+dx/len*extend,ey=sy+dy/len*extend;
+    this.addBullet({type:"kaiserBeam",x1:sx,y1:sy,x2:ex,y2:ey,width:width*d,warningMs:warningMs*this.telegraphScale,fireMs,life:warningMs*this.telegraphScale+fireMs+420,damage,final,arcForm:this.kaiserVisualForm==="arc"});
+    this.setKaiserCanvasPose(this.kaiserVisualForm==="arc"?"arcAttackA":"beamAction",{fps:6.2,loop:false});
+    this.kaiserSfx("beamCharge",260);
+  }
+
+  kaiserSpawnKick({x=null,arc=false,delay=0}={}){
+    const d=this.dpr;
+    this.addBullet({type:"kaiserKick",x:x??this.canvas.width*(.18+Math.random()*.64),warningMs:620*this.telegraphScale,impactMs:300,life:1220*this.telegraphScale,damage:arc?19:16,radius:(arc?42:34)*d,arc,delay});
+    this.setKaiserCanvasPose(arc?"arcKick":"noCloakAction",{fps:6.6,loop:false});
+  }
+
+  kaiserSpawnClawClamp({delay=0,hard=false,first=false,gapX=null}={}){
+    const warningMs=(first?1850:(hard?900:1080))*this.telegraphScale;
+    const closeMs=hard?220:250,holdMs=260,openMs=220;
+    this.addBullet({type:"kaiserClawClamp",warningMs,closeMs,holdMs,openMs,life:warningMs+closeMs+holdMs+openMs+80,damage:hard?17:13,gapX:gapX??this.canvas.width*(.24+Math.random()*.52),gapHalf:(hard?58:72)*this.dpr,delay});
+    this.setKaiserCanvasPose(this.kaiserVisualForm==="cloak"?"cloakIdleAlt":"clawAction",{fps:5.8,loop:false});
+  }
+
+  kaiserSpawnArcRain({hard=false}={}){
+    const d=this.dpr,w=this.canvas.width;
+    const count=hard?9:6;
+    for(let i=0;i<count;i++)this.addBullet({type:"kaiserOrb",x:w*(.055+Math.random()*.89),y:-20*d-Math.random()*92*d,vx:(Math.random()-.5)*42*d,vy:(hard?305:245)*d,r:(5+Math.random()*2.4)*d,damage:hard?11:9,life:3300,kaiserColor:"arc"});
+  }
+
+  kaiserSpawnGreenArrow({fromLeft=Math.random()<.5}={}){
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height,y=h*(.16+Math.random()*.72),sp=(485+Math.random()*105)*d;
+    this.addBullet({type:"kaiserGreenArrow",x:fromLeft?-36*d:w+36*d,y,vx:fromLeft?sp:-sp,vy:0,r:10*d,damage:13,life:2600});
+  }
+
+  runKaiserBelialPattern(){
+    const phase=this.kaiserPhase,variant=(this.kaiserTurn-1)%6,w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+    if(phase===0){
+      this.kaiserCanvasX=w*.5;this.kaiserCanvasY=h*.20;
+      if(variant===0){
+        this.kaiserCue("p1-light-pose",0,()=>this.setKaiserCanvasPose("cloakIdleAlt",{fps:4.8,loop:true}));
+        const beats=[650,1120,1610,2110,2620,3140,3670,4210,4760,5320,5890,6470,7060,7660,8270,8890,9520,10160,10820];
+        beats.forEach((at,i)=>this.kaiserCue(`p1-light-${i}`,at,()=>this.kaiserSpawnLightning({big:i>=17,damage:i>=17?18:11})));
+      }else if(variant===1){
+        this.kaiserCue("p1-wave-pose",0,()=>this.setKaiserCanvasPose("cloakIdleAlt",{fps:4.2,loop:true}));
+        const minions=[
+          {id:"m0",side:"left",y:.20,phase:.1,amp:.15},{id:"m1",side:"right",y:.37,phase:1.7,amp:.17},
+          {id:"m2",side:"left",y:.61,phase:3.1,amp:.16},{id:"m3",side:"right",y:.79,phase:4.6,amp:.14}
+        ];
+        minions.forEach((m,i)=>this.kaiserCue(`p1-minion-${i}`,150+i*105,()=>{
+          const x=m.side==="left"?39*d:w-39*d;
+          this.addBullet({type:"kaiserMinion",minionId:m.id,x,baseX:x,y:h*m.y,baseY:h*m.y,side:m.side,life:12800,damage:0,r:0,phase:m.phase,ampY:h*m.amp,ampX:16*d});
+        }));
+        // Authored firing order: no identical left/right rhythm and no slow single-line lull.
+        const order=[0,2,1,3,0,3,1,2,3,0,2,1,0,2,3,1,2,0,3,1,0,3,2,1];
+        const times=order.map((_,i)=>760+i*455);
+        times.forEach((at,i)=>this.kaiserCue(`p1-wave-${i}`,at,()=>{
+          const m=minions[order[i]],obj=this.bullets.find(b=>!b.dead&&b.minionId===m.id),y=obj?.y??h*m.y;
+          this.kaiserSpawnWaveChain({from:m.side,baseY:y,amplitude:34+(i%5)*4,count:28+(i%4)*2,speed:360+(i%6)*14,phase:i*.69,spacing:11.5,damage:9});
+          // Later beats cross a second point-wave from the other side, but offset it enough to
+          // keep a readable route instead of creating a random wall.
+          if(i>=6 && i%3===1){
+            const other=minions[(order[i]+1+(i%2))%minions.length],obj2=this.bullets.find(b=>!b.dead&&b.minionId===other.id),y2=obj2?.y??h*other.y;
+            this.kaiserSpawnWaveChain({from:other.side,baseY:clamp(y2+(i%2?62:-62)*d,h*.16,h*.84),amplitude:28+(i%3)*5,count:24,speed:390+(i%4)*16,phase:i*.73+Math.PI,spacing:12,damage:9});
+          }
+        }));
+      }else if(variant===2){
+        const colors=["orange","blue","orange","blue","blue","orange","orange"];
+        this.kaiserScheduleSweepScript("p1-staff",300,colors,["h","d","r"],{spacing:1080,fromRight:i=>i%2===1,damage:14});
+      }else if(variant===3){
+        const gaps=[.31,.67,.45,.72,.28,.56];
+        const times=[0,2250,4150,6050,7950,9850];
+        times.forEach((at,i)=>this.kaiserCue(`p1-claw-${i}`,at,()=>this.kaiserSpawnClawClamp({hard:i>=3,first:i===0,gapX:w*gaps[i]})));
+      }else if(variant===4){
+        [600,1260,1930,2610,3300,4000,4710,5430,6160,6900,7650,8410,9180,9960,10750].forEach((at,i)=>this.kaiserCue(`p1-mixl-${i}`,at,()=>this.kaiserSpawnLightning({big:i===14,damage:i===14?18:11})));
+        [1050,2900,4750,6600,8450,10300].forEach((at,i)=>this.kaiserCue(`p1-mixw-${i}`,at,()=>this.kaiserSpawnWaveChain({from:i%2?"right":"left",amplitude:35+(i%2)*8,count:22,speed:330,phase:i*.9,spacing:13})));
+      }else{
+        const colors=["blue","orange","orange","blue","orange"];
+        this.kaiserScheduleSweepScript("p1-combo",250,colors,["h","d","h","r","h"],{spacing:1260,fromRight:i=>i%2===0,damage:14});
+        [3600,6100,8600,10900].forEach((at,i)=>this.kaiserCue(`p1-combow-${i}`,at,()=>this.kaiserSpawnWaveChain({from:i%2?"right":"left",count:20,speed:335,amplitude:34,phase:i*1.1,spacing:13})));
+      }
+      return;
+    }
+
+    if(phase===1){
+      this.kaiserCanvasX=variant===2||variant===3?w*.115:w*.5;this.kaiserCanvasY=h*.20;
+      if(variant===0){
+        [450,830,1220,1620,2030,2450,2880,3320,3770,4230,4700].forEach((at,i)=>this.kaiserCue(`p2-rand-${i}`,at,()=>this.kaiserSpawnLightning({damage:12})));
+        const lanePairs=[[1,7],[2,6],[3,8],[1,6],[4,8],[2,7],[1,5],[3,7],[2,8]];
+        lanePairs.forEach((pair,i)=>this.kaiserCue(`p2-lanepair-${i}`,5400+i*390,()=>{
+          for(const lane of pair)this.kaiserSpawnLightning({x:w*((lane-.5)/8),damage:13});
+        }));
+        this.kaiserCue("p2-aim",9300,()=>this.kaiserSpawnLightning({x:this.player.x,big:true,damage:20}));
+        this.kaiserCue("p2-finisher",11500,()=>this.kaiserSpawnScythe({direction:"h",fromRight:true}));
+      }else if(variant===1){
+        const colors=["orange","blue","orange","orange","blue","blue","orange","blue"];
+        const end=this.kaiserScheduleSweepScript("p2-staff",250,colors,["h","d","r","h"],{spacing:980,fromRight:i=>i%2===1,damage:16});
+        this.kaiserCue("p2-claw-final",end+150,()=>{this.setKaiserCanvasPose("clawAction",{fps:7,loop:false});this.addBullet({type:"kaiserClawMarks",warningMs:500,life:1500,damage:8});});
+      }else if(variant===2){
+        this.kaiserCue("p2-wavepose",0,()=>this.setKaiserCanvasPose("waveAction",{fps:4.2,loop:true,x:w*.105,y:h*.27}));
+        for(let i=0;i<22;i++)this.kaiserCue(`p2-wave-${i}`,620+i*540,()=>{
+          const y=h*(.50+.28*Math.sin(this.elapsed/1040));
+          this.kaiserSpawnWaveChain({from:"left",baseY:y,amplitude:28+10*Math.sin(i*.8)**2,count:28,speed:375+(i%4)*16,phase:i*.64,spacing:11.5,damage:10});
+        });
+        this.kaiserCue("p2-wave-fin",12800,()=>this.kaiserSpawnBeam({orientation:(this.kaiserTurn%2)?"d":"v",position:.54}));
+      }else if(variant===3){
+        this.kaiserCue("p2-circle",120,()=>this.addBullet({type:"kaiserCircleField",x:w/2,y:h*.55,radius:108*d,life:12800,damage:0}));
+        for(let i=0;i<18;i++)this.kaiserCue(`p2-circlewave-${i}`,690+i*640,()=>{
+          const from=i%2?"right":"left";
+          this.kaiserSpawnWaveChain({from,baseY:h*.55,amplitude:58,count:26,speed:382,phase:i*.9,spacing:11.5,damage:10});
+        });
+        this.kaiserCue("p2-circle-fin",12000,()=>this.kaiserSpawnScythe({direction:"d",fromRight:this.kaiserTurn%2===0}));
+      }else if(variant===4){
+        const xs=[.24,.38,.54,.68,.34,.62];
+        xs.forEach((x,i)=>this.kaiserCue(`p2-kick-${i}`,900+i*2050,()=>this.kaiserSpawnKick({x:w*x,arc:false})));
+        const colors=["orange","blue","orange","blue","orange"];
+        this.kaiserScheduleSweepScript("p2-kicksweep",550,colors,["h"],{spacing:2200,fromRight:i=>i%2===1,damage:15});
+      }else{
+        [450,860,1280,1710,2150,2600,3060,3530,4010].forEach((at,i)=>this.kaiserCue(`p2-finel-${i}`,at,()=>this.kaiserSpawnLightning({big:i===8,damage:i===8?20:12})));
+        const colors=["blue","orange","orange"];
+        this.kaiserScheduleSweepScript("p2-finale-staff",5300,colors,["h","d","r"],{spacing:1100,fromRight:i=>i%2===0,damage:16});
+        this.kaiserCue("p2-final-choice",11800,()=>{ if(this.kaiserTurn%2)this.kaiserSpawnScythe({direction:"h",fromRight:true}); else this.kaiserSpawnBeam({orientation:this.kaiserTurn%3===0?"d":"v",position:.5}); });
+      }
+      return;
+    }
+
+    // Arc Belial: no passive corner exists. Every round overlaps two readable axes and
+    // samples the player's position for at least one attack, so difficulty comes from routing.
+    this.kaiserCanvasX=w*.5;this.kaiserCanvasY=h*.18;
+    if(variant===0){
+      this.kaiserCue("p3-rainpose",0,()=>this.setKaiserCanvasPose("arcAttackC",{fps:5.8,loop:true}));
+      for(let i=0;i<30;i++)this.kaiserCue(`p3-rain-${i}`,260+i*390,()=>this.kaiserSpawnArcRain({hard:true}));
+      for(let i=0;i<16;i++)this.kaiserCue(`p3-arrow-${i}`,700+i*690,()=>this.kaiserSpawnGreenArrow({fromLeft:i%2===0}));
+      [1750,4300,6850,9400,11950].forEach((at,i)=>this.kaiserCue(`p3-rain-wave-${i}`,at,()=>this.kaiserSpawnWaveChain({from:i%2?"right":"left",baseY:clamp(this.player.y+(i%2?55:-55)*d,h*.18,h*.82),count:26,speed:405,amplitude:48,phase:i*.8,spacing:10.5,damage:10,color:"arc"})));
+    }else if(variant===1){
+      [350,690,1040,1400,1770,2150,2540,2940,3350,3770,4200,4640,5090,5550,6020,6500,6990,7490,8000,8520].forEach((at,i)=>this.kaiserCue(`p3-light-${i}`,at,()=>this.kaiserSpawnLightning({big:i%5===4,damage:i%5===4?18:12})));
+      [1850,5050,8250].forEach((at,i)=>this.kaiserCue(`p3-light-aim-${i}`,at,()=>this.kaiserSpawnTargetedBeam({targetX:this.player.x,targetY:this.player.y,warningMs:720,fireMs:720,width:46,damage:17})));
+      this.kaiserCue("p3-bigbeam",10800,()=>this.kaiserSpawnBeam({orientation:"v",position:.5,final:true}));
+    }else if(variant===2){
+      const xs=[.18,.35,.54,.72,.28,.64,.42,.22,.58];
+      xs.forEach((x,i)=>this.kaiserCue(`p3-kick-${i}`,500+i*1380,()=>this.kaiserSpawnKick({x:w*x,arc:true})));
+      [1250,3950,6650,9350].forEach((at,i)=>this.kaiserCue(`p3-kick-arrow-${i}`,at,()=>this.kaiserSpawnGreenArrow({fromLeft:i%2===0})));
+      [3000,8400].forEach((at,i)=>this.kaiserCue(`p3-kick-beam-${i}`,at,()=>this.kaiserSpawnTargetedBeam({targetX:this.player.x,targetY:this.player.y,warningMs:680,fireMs:680,width:44,damage:16})));
+    }else if(variant===3){
+      [420,2650,4880,7110,9340,11570].forEach((at,i)=>this.kaiserCue(`p3-claw-${i}`,at,()=>{this.setKaiserCanvasPose("arcAttackB",{fps:6.4,loop:false});this.addBullet({type:"kaiserArcClaw",warningMs:600,life:1740,damage:18,flip:i%2===1,aimY:this.player.y});this.kaiserSfx("claw",220);}));
+      [1450,6000,10450].forEach((at,i)=>this.kaiserCue(`p3-claw-wave-${i}`,at,()=>this.kaiserSpawnWaveChain({from:i%2?"right":"left",baseY:this.player.y,amplitude:42,count:28,speed:410,phase:i,spacing:10.5,damage:10,color:"arc"})));
+    }else if(variant===4){
+      for(let i=0;i<25;i++)this.kaiserCue(`p3-mixrain-${i}`,300+i*455,()=>this.kaiserSpawnArcRain({hard:true}));
+      [900,2700,4500,6300,8100,9900,11700].forEach((at,i)=>this.kaiserCue(`p3-mixwave-${i}`,at,()=>this.kaiserSpawnWaveChain({from:i%2?"right":"left",baseY:clamp(this.player.y+(i%3-1)*70*d,h*.17,h*.83),count:28,speed:405,amplitude:46,phase:i*.9,damage:10,spacing:10.5,color:"arc"})));
+      [3450,8850].forEach((at,i)=>this.kaiserCue(`p3-mixbeam-${i}`,at,()=>this.kaiserSpawnTargetedBeam({targetX:this.player.x,targetY:this.player.y,warningMs:720,fireMs:750,width:48,damage:18})));
+    }else{
+      [380,1710,3040,4370,5700,7030,8360,9690,11020].forEach((at,i)=>this.kaiserCue(`p3-combo-k-${i}`,at,()=>i%2?this.kaiserSpawnLightning({big:true,damage:18}):this.kaiserSpawnKick({arc:true,x:w*(.18+(i%4)*.21)})));
+      [950,3000,5050,7100,9150,11200].forEach((at,i)=>this.kaiserCue(`p3-combo-a-${i}`,at,()=>this.kaiserSpawnGreenArrow({fromLeft:i%2===0})));
+      [2350,6450,10550].forEach((at,i)=>this.kaiserCue(`p3-combo-beam-${i}`,at,()=>this.kaiserSpawnTargetedBeam({targetX:this.player.x,targetY:this.player.y,warningMs:700,fireMs:720,width:46,damage:17})));
+      this.kaiserCue("p3-combo-finalbeam",12800,()=>this.kaiserSpawnBeam({orientation:"v",position:.5,final:true}));
+    }
+  }
+
+  runKaiserChasePattern(){
+    const w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+    this.kaiserCanvasX=w*.64;this.kaiserCanvasY=h*.27;
+    this.kaiserCue("chase-tear",0,()=>{this.setKaiserCanvasPose("tearTransition",{fps:4.6,loop:false,x:w*.60,y:h*.28});this.kaiserSfx("tear",0);});
+    this.kaiserCue("chase-fly",4500,()=>{this.setKaiserCanvasPose("chaseA",{fps:3.4,loop:true,x:w*.72,y:h*.29});this.kaiserSfx("transform",0);});
+    for(let i=0;i<28;i++)this.kaiserCue(`chase-meteor-${i}`,5200+i*1030,()=>{
+      const key=["meteorA","meteorB","meteorC"][i%3];
+      this.addBullet({type:"kaiserMeteor",key,x:w+50*d,y:h*(.10+((i*37)%81)/100*.80),vx:-(285+(i%5)*25)*d,vy:((i%3)-1)*20*d,r:(15+(i%3)*5)*d,hp:i%3===2?3:2,damage:12,life:5600,breakableByKaiserShot:true});
+    });
+    this.kaiserScheduleSweepScript("chase-staff-a",5400,["orange","blue","orange","orange","blue"],["h","d","r","h","d"],{spacing:980,fromRight:i=>i%2===0,damage:14});
+    [11700,23300].forEach((at,i)=>this.kaiserCue(`chase-claw-${i}`,at,()=>{this.setKaiserCanvasPose("chaseC",{fps:6.3,loop:false});this.addBullet({type:"kaiserClawWave",x:w*.72,y:h*(.25+i*.08),vx:-370*d,vy:i?44*d:-42*d,r:24*d,damage:14,life:3300});this.kaiserSfx("claw",220);}));
+    [12800,26000,32100].forEach((at,i)=>this.kaiserCue(`chase-beams-${i}`,at,()=>{
+      const samples=[.16,.32,.49,.66,.83],safe=Math.floor(clamp(this.player.x/w,0,1)*5);samples.forEach((position,j)=>{if(j!==safe&&j!==Math.min(4,safe+1))this.kaiserSpawnBeam({orientation:"v",position,delay:j*95});});
+      this.kaiserSpawnTargetedBeam({fromX:w*.70,fromY:h*.20,targetX:this.player.x,targetY:this.player.y,warningMs:850,fireMs:720,width:42,damage:16});
+    }));
+    [15100,28200,34700].forEach((at,i)=>this.kaiserCue(`chase-kick-${i}`,at,()=>this.kaiserSpawnKick({x:this.player.x,arc:false})));
+    this.kaiserScheduleSweepScript("chase-staff-b",17600,["blue","orange","blue","orange","orange","blue"],["r","h","d","h","r","d"],{spacing:980,fromRight:i=>i%2===1,damage:15});
+    // The chase ends inside white light instead of hard-cutting from flying cloak Belial to the
+    // no-cloak stage portrait.
+    this.kaiserCue("chase-whiteout",38500,()=>this.addBullet({type:"kaiserWhiteout",life:3000,damage:0}));
+  }
+
+  runKaiserHalfPattern(){
+    const w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+    this.kaiserCanvasX=w*.70;this.kaiserCanvasY=h*.23;
+
+    // Phase II -> III must keep a complete no-cloak actor on screen.  The old phase2Shift sheets
+    // contain partial action fragments and were being treated as full-body sprites, which is what
+    // produced floating legs/arms and stray pieces.  Use the complete no-cloak sheets for the
+    // playable transition and let the procedural slashes/field carry the screen destruction.
+    this.kaiserCue("half-roar",0,()=>{this.setKaiserCanvasPose("noCloakAction",{fps:5.4,loop:false});this.kaiserSfx("roar",0);});
+    this.kaiserCue("half-field",500,()=>this.addBullet({type:"kaiserHalfField",life:this.durationMs-500,damage:0}));
+    [1750,3500,5250].forEach((at,i)=>this.kaiserCue(`half-rip-${i}`,at,()=>{
+      this.setKaiserCanvasPose("noCloakAction",{fps:5.5,loop:false});
+      this.kaiserSfx("claw",720);
+      this.addBullet({type:"kaiserClawMarks",warningMs:260,life:920,damage:0,flip:i%2===1});
+    }));
+    this.kaiserCue("half-ready",6350,()=>this.setKaiserCanvasPose("noCloakIdleAggro",{fps:4.35,loop:true}));
+
+    // Deliberate clusters instead of an unreadable wall of overlapping lines.  The full sequence
+    // still contains nineteen cuts (12 main + 4 edge clears + 3 charged cuts), but every cut has a
+    // readable telegraph and there is no permanent top/bottom camping lane.
+    const slashes=[
+      [.03,.18,.97,.80],[.03,.82,.97,.20],[.18,.03,.78,.97],[.82,.03,.22,.97],
+      [.02,.45,.98,.58],[.02,.65,.98,.36],[.34,.02,.62,.98],[.66,.02,.38,.98],
+      [.02,.24,.98,.73],[.02,.76,.98,.27],[.25,.02,.86,.98],[.75,.02,.14,.98]
+    ];
+    slashes.forEach((L,i)=>this.kaiserCue(`half-slash-${i}`,7000+i*510,()=>{
+      this.addBullet({type:"kaiserHalfSlash",lineNorm:L,warningMs:365,activeMs:245,life:760,damage:12,index:i,sfxKind:"claw"});
+    }));
+
+    const edgeCuts=[[.02,.91,.98,.91],[.02,.10,.98,.10],[.28,.02,.28,.98],[.72,.02,.72,.98]];
+    edgeCuts.forEach((L,i)=>this.kaiserCue(`half-edgecut-${i}`,13650+i*560,()=>{
+      this.addBullet({type:"kaiserHalfSlash",lineNorm:L,warningMs:410,activeMs:270,life:820,damage:13,index:40+i,sfxKind:"scythe"});
+    }));
+
+    this.kaiserCue("half-triple-warn",16100,()=>this.setKaiserCanvasPose("noCloakAction",{fps:5.3,loop:false}));
+    [[.02,.20,.98,.82],[.02,.50,.98,.50],[.02,.82,.98,.18]].forEach((L,n)=>this.kaiserCue(`half-triple-${n}`,16950+n*350,()=>{
+      this.addBullet({type:"kaiserHalfSlash",lineNorm:L,warningMs:270,activeMs:225,life:650,damage:14,index:30+n,sfxKind:"scythe"});
+    }));
+
+    const kickXs=[.30,.40,.50,.60,.70,.66,.56,.46,.36,.31,.44,.58];
+    kickXs.forEach((x,i)=>this.kaiserCue(`half-kick-${i}`,18850+i*700,()=>this.kaiserSpawnKick({x:w*x,arc:false})));
+    this.kaiserCue("half-center-beam",27950,()=>this.kaiserSpawnTargetedBeam({fromX:w*.70,fromY:h*.16,targetX:this.player.x,targetY:this.player.y,warningMs:1120,fireMs:1450,width:68,damage:21,final:true}));
+
+    // Absorption uses only complete full-body sequences.  whiteoutB is an effects-only sheet and
+    // is intentionally not used as the actor.
+    this.kaiserCue("half-absorb",31100,()=>{this.setKaiserCanvasPose("emeraldAbsorbA",{fps:4.6,loop:false,x:w*.67,y:h*.28});this.kaiserSfx("transformHeavy",0);});
+    for(let i=0;i<48;i++)this.kaiserCue(`half-mineral-${i}`,31300+i*105,()=>{
+      const edge=i%4,margin=28*d;let x,y;
+      if(edge===0){x=-margin;y=h*(.08+((i*37)%84)/100*.84);}else if(edge===1){x=w+margin;y=h*(.08+((i*43)%84)/100*.84);}else if(edge===2){x=w*(.08+((i*29)%84)/100*.84);y=-margin;}else{x=w*(.08+((i*31)%84)/100*.84);y=h+margin;}
+      const key=i%5===0?"emeraldLarge":i%2?"emeraldSmall":"emeraldMed";
+      this.addBullet({type:"kaiserAbsorbMineral",key,x,y,targetX:w*.67,targetY:h*.32,r:(key==="emeraldLarge"?16:key==="emeraldMed"?12:9)*d,life:2450,damage:0,curve:(i%2?1:-1)*.22});
+    });
+    this.kaiserCue("half-absorb-c",34400,()=>this.setKaiserCanvasPose("emeraldAbsorbC",{fps:4.4,loop:false,x:w*.67,y:h*.28}));
+    this.kaiserCue("half-white-a",36400,()=>this.setKaiserCanvasPose("whiteoutA",{fps:4.8,loop:false,x:w*.67,y:h*.28}));
+    // Hold the whiteout through the actual end of the long transition.  When the arena collapses
+    // back to dialogue the next form is already underneath it, so the form change never hard-cuts.
+    this.kaiserCue("half-whiteout",37000,()=>this.addBullet({type:"kaiserWhiteout",life:8000,damage:0}));
+  }
+
+  runKaiserFinalCorridorPattern(){
+    const d=this.dpr,w=this.canvas.width,h=this.canvas.height;
+    const last=this.kaiserCorridorLastElapsed??this.elapsed,dt=Math.max(0,(this.elapsed-last)/1000);this.kaiserCorridorLastElapsed=this.elapsed;
+    const advance=this.kaiserDashing?.0255:.0095;
+    this.kaiserCorridorProgress=clamp((this.kaiserCorridorProgress??0)+dt*advance,0,1);
+    this.kaiserCanvasX=w*.79;this.kaiserCanvasY=h*.13;
+    if(!this.kaiserCanvasPoseKey?.startsWith("arcFinal"))this.setKaiserCanvasPose("arcFinalA",{fps:3.3,loop:true,x:w*.79,y:h*.15});
+
+    if(this.spawnClock>610-(this.kaiserCorridorProgress*70)){
+      this.spawnClock=0;
+      const gapCenter=h*(.30+Math.random()*.40),gapHalf=(62+Math.random()*28)*d,width=(54+Math.random()*38)*d;
+      this.addBullet({type:"kaiserStalactitePair",x:w+width,y:0,width,gapCenter,gapHalf,vx:-(230+this.kaiserCorridorProgress*125)*d,damage:13,life:6800,seed:Math.floor(Math.random()*999)});
+    }
+    if(this.auxClock>540){
+      this.auxClock=0;
+      const base=clamp(this.player.y+(Math.random()-.5)*120*d,h*.17,h*.82);
+      this.kaiserSpawnWaveChain({from:"right",baseY:base,amplitude:38+Math.random()*22,count:26,speed:410+this.kaiserCorridorProgress*80,phase:this.elapsed/850,spacing:10.5,damage:10,color:"arc"});
+    }
+    const arrowBeat=Math.floor(Math.max(0,this.elapsed-1300)/2050);
+    if(this.elapsed>=1300)this.kaiserCue(`final-arrow-${arrowBeat}`,1300+arrowBeat*2050,()=>this.kaiserSpawnGreenArrow({fromLeft:(arrowBeat%2)===0}));
+    const beamBeat=Math.floor(Math.max(0,this.elapsed-2500)/4200);
+    if(this.elapsed>=2500)this.kaiserCue(`final-beam-${beamBeat}`,2500+beamBeat*4200,()=>this.kaiserSpawnTargetedBeam({fromX:w*.78,fromY:h*.17,targetX:this.player.x,targetY:this.player.y,warningMs:840,fireMs:980,width:50+this.kaiserCorridorProgress*15,damage:18}));
+    const lightningBeat=Math.floor(Math.max(0,this.elapsed-3900)/3500);
+    if(this.elapsed>=3900)this.kaiserCue(`final-lightning-${lightningBeat}`,3900+lightningBeat*3500,()=>this.kaiserSpawnLightning({x:this.player.x,big:lightningBeat%4===3,damage:lightningBeat%4===3?19:12}));
+    const clawBeat=Math.floor(Math.max(0,this.elapsed-5200)/6400);
+    if(this.elapsed>=5200)this.kaiserCue(`final-claw-${clawBeat}`,5200+clawBeat*6400,()=>{this.setKaiserCanvasPose("arcFinalB",{fps:5.8,loop:false});this.addBullet({type:"kaiserArcClaw",warningMs:650,life:1800,damage:18,aimY:this.player.y,flip:clawBeat%2===1});this.kaiserSfx("claw",220);});
+
+    if(this.elapsed>=65000&&this.kaiserCorridorProgress>=.985&&!this.kaiserHeartSpawned){
+      this.kaiserHeartSpawned=true;
+      this.addBullet({type:"kaiserHeart",key:"heartA",x:w+105*d,y:h*.54,vx:-105*d,r:42*d,life:18000,damage:0});
+      this.setKaiserCanvasPose("arcFinalC",{fps:5.0,loop:true,x:w*.79,y:h*.15});
+      this.kaiserSfx("coreReveal",0);
+    }
+    if(this.kaiserHeartSpawned&&!this.kaiserFinalCoreBroken)this.durationMs=Math.max(this.durationMs,this.elapsed+5000);
+    if(this.kaiserDashing)this.effects.push({type:"kaiserDashTrail",x:this.player.x-8*d,y:this.player.y,age:0,life:160,radius:22*d});
   }
 
   originalBreakableTypes() {
@@ -4512,7 +4975,7 @@ export class BulletSystem {
       if (this.mode === "stasis" && this.stasisActive && ["lugielLance","lugielSlash","lugielBladeGate","lugielClockSweep"].includes(bullet.type)) continue;
       bullet.activeAge += dt * 1000;
 
-      if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam"].includes(bullet.type)) {
+      if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam", "kaiserMinion", "kaiserLightning", "kaiserSweep", "kaiserScythe", "kaiserBeam", "kaiserKick", "kaiserClawClamp", "kaiserClawMarks", "kaiserArcClaw", "kaiserCircleField", "kaiserHalfField", "kaiserHalfSlash", "kaiserWhiteout", "kaiserMineral", "kaiserStalactitePair", "kaiserHeart", "kaiserColorPreview", "kaiserAbsorbMineral"].includes(bullet.type)) {
         this.updateHazard(bullet, now);
         continue;
       }
@@ -4585,6 +5048,22 @@ export class BulletSystem {
         continue;
       }
 
+      if (bullet.type === "kaiserFriendlyShot") {
+        bullet.x += bullet.vx * dt; bullet.y += bullet.vy * dt;
+        const targets=this.bullets.filter((target)=>!target.dead&&target!==bullet&&target.type==="kaiserMeteor");
+        let hit=null,best=Infinity;
+        for(const target of targets){
+          const dist=Math.hypot(target.x-bullet.x,target.y-bullet.y);
+          if(dist<=(target.r??0)+(bullet.r??0)+4*this.dpr&&dist<best){hit=target;best=dist;}
+        }
+        if(hit){
+          bullet.dead=true; hit.hp=(hit.hp??1)-1;
+          this.effects.push({type:"kaiserBreak",x:hit.x,y:hit.y,age:0,life:300,radius:20*this.dpr,label:hit.hp<=0?"BREAK":"HIT"});
+          if(hit.hp<=0)hit.dead=true;
+        }
+        continue;
+      }
+
       if (bullet.type === "belialFriendlyShot") {
         bullet.x += bullet.vx * dt; bullet.y += bullet.vy * dt;
         const targets=this.bullets.filter((target)=>!target.dead&&target!==bullet&&target.breakableByBelialShot);
@@ -4618,6 +5097,26 @@ export class BulletSystem {
           }else{
             this.callbacks.onNexusShot?.({damage:6,bondGain:hitDist<8*this.dpr?7:5,perfect:hitDist<8*this.dpr,source:"dark-node"});
           }
+        }
+        continue;
+      }
+
+      if (["kaiserOrb","kaiserGreenArrow","kaiserMeteor","kaiserClawWave"].includes(bullet.type)) {
+        bullet.x += bullet.vx * dt;
+        if(bullet.waveNode){
+          bullet.y=(bullet.waveBaseY??bullet.y)+Math.sin((bullet.wavePhase??0)+bullet.activeAge*(bullet.waveWobble??.0012))*(bullet.waveAmplitude??0);
+        } else bullet.y += bullet.vy * dt;
+        if(bullet.life && bullet.activeAge>bullet.life){bullet.dead=true;continue;}
+        const dist=Math.hypot(bullet.x-this.player.x,bullet.y-this.player.y);
+        if(dist<=(bullet.r??5*this.dpr)+this.player.radius*this.dpr){
+          if(this.kaiserSpecial==="final"&&this.kaiserDashing){
+            // Charging through a wave should read as breaking the wave, not merely ignoring one
+            // pellet.  A wave chain shares waveId, so one frontal impact erases the whole strand.
+            if(bullet.waveId){
+              for(const node of this.bullets)if(node.waveId===bullet.waveId)node.dead=true;
+            }else bullet.dead=true;
+            this.effects.push({type:"kaiserBreak",x:bullet.x,y:bullet.y,age:0,life:300,radius:24*this.dpr,label:"BREAK"});
+          }else this.hitPlayer(bullet,now,bullet.damage??10);
         }
         continue;
       }
@@ -4817,7 +5316,7 @@ export class BulletSystem {
       if (bullet.delay > 0) return true;
       if (bullet.type === "gateLight" && bullet.activeAge > bullet.life) return false;
       if (bullet.type === "mirrorSign" || bullet.type === "freezeCrystal") return true;
-      if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam"].includes(bullet.type)) return true;
+      if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam", "kaiserMinion", "kaiserLightning", "kaiserSweep", "kaiserScythe", "kaiserBeam", "kaiserKick", "kaiserClawClamp", "kaiserClawMarks", "kaiserArcClaw", "kaiserCircleField", "kaiserHalfField", "kaiserHalfSlash", "kaiserWhiteout", "kaiserMineral", "kaiserStalactitePair", "kaiserHeart", "kaiserColorPreview", "kaiserAbsorbMineral"].includes(bullet.type)) return true;
       const screenY = bullet.worldSpace && this.mode === "platform" ? this.platformScreenY(bullet.y) : bullet.y;
       return bullet.x > -margin && bullet.x < this.canvas.width + margin && screenY > -margin && screenY < this.canvas.height + margin;
     });
@@ -4826,6 +5325,7 @@ export class BulletSystem {
   updateHazard(bullet, now) {
     const activeAge = bullet.activeAge;
     if (activeAge > bullet.life) {
+      if (bullet.type === "kaiserColorPreview") { this.kaiserPreviewColor=null; this.kaiserPreviewIndex=-1; }
       if (bullet.type === "fiveLaneFrame") this.fiveLaneMode = false;
       if (bullet.type === "fiveFallField") this.fiveFallMode = false;
       if (bullet.type === "belialClawClamp") this.belialClawMode = false;
@@ -4835,6 +5335,168 @@ export class BulletSystem {
         this.reportGingaStatic(true);
       }
       bullet.dead = true;
+      return;
+    }
+
+    if (bullet.type === "kaiserMinion") {
+      const t=activeAge/1000,phase=bullet.phase??0;
+      bullet.x=(bullet.baseX??bullet.x)+Math.sin(t*.78+phase)*(bullet.ampX??0);
+      bullet.y=(bullet.baseY??bullet.y)+Math.sin(t*1.15+phase)*(bullet.ampY??0);
+      return;
+    }
+    if (bullet.type === "kaiserColorPreview") {
+      const colors=bullet.colors??[],step=Math.max(260,bullet.stepMs??500),on=Math.min(step-80,Math.max(160,bullet.colorOnMs??310));
+      const sequenceMs=bullet.sequenceMs??colors.length*step;
+      if(activeAge>=sequenceMs){this.kaiserPreviewIndex=-1;this.kaiserPreviewColor=null;return;}
+      const idx=Math.min(colors.length-1,Math.max(0,Math.floor(activeAge/step))),local=activeAge-idx*step;
+      this.kaiserPreviewIndex=idx;
+      this.kaiserPreviewColor=local<on?(colors[idx]??null):null;
+      return;
+    }
+    if (bullet.type === "kaiserAbsorbMineral") {
+      const life=Math.max(1,bullet.life??2200),t=clamp(activeAge/life,0,1),ease=1-Math.pow(1-t,3);
+      if(bullet.startX==null){bullet.startX=bullet.x;bullet.startY=bullet.y;}
+      const bend=(bullet.curve??0)*this.canvas.height*Math.sin(Math.PI*t);
+      bullet.x=bullet.startX+(bullet.targetX-bullet.startX)*ease;
+      bullet.y=bullet.startY+(bullet.targetY-bullet.startY)*ease+bend;
+      if(t>=.99)bullet.dead=true;
+      return;
+    }
+    if (bullet.type === "kaiserLightning") {
+      const warn=bullet.warningMs??440,strikeEnd=warn+(bullet.strikeMs??280);
+      if(activeAge>=warn&&!bullet._strikeSfx){bullet._strikeSfx=true;this.kaiserSfx(bullet.big?"lightningHeavy":"lightningStrike",120);}
+      if(activeAge>=warn&&activeAge<=strikeEnd){
+        const dx=Math.abs(this.player.x-bullet.x);
+        if(dx<=bullet.radius+this.player.radius*this.dpr)this.hitPlayer(bullet,now,bullet.damage??12);
+      }
+      return;
+    }
+    if (bullet.type === "kaiserSweep") {
+      const warn=bullet.warningMs??500,end=warn+(bullet.activeMs??520);
+      if(activeAge>=warn&&!bullet._sweepSfx){bullet._sweepSfx=true;this.kaiserSfx(bullet.colorMode==="orange"?"slashOrange":"slashBlue",120);}
+      if(activeAge<warn||activeAge>end)return;
+      const p=clamp((activeAge-warn)/Math.max(1,end-warn),0,1),w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+      let x1=0,y1=0,x2=w,y2=h;
+      if(bullet.orientation==="h"){const yy=h*(bullet.fromRight?(.82-.64*p):(.18+.64*p));x1=0;x2=w;y1=y2=yy;}
+      else if(bullet.orientation==="d"){const shift=(p-.5)*h*.9;x1=0;y1=h*.12+shift;x2=w;y2=h*.88+shift;}
+      else {const shift=(p-.5)*h*.9;x1=0;y1=h*.88-shift;x2=w;y2=h*.12-shift;}
+      bullet.drawLine={x1,y1,x2,y2};
+      const vx=x2-x1,vy=y2-y1,wx=this.player.x-x1,wy=this.player.y-y1,len2=vx*vx+vy*vy||1,t=clamp((wx*vx+wy*vy)/len2,0,1),cx=x1+vx*t,cy=y1+vy*t;
+      const near=Math.hypot(this.player.x-cx,this.player.y-cy)<=bullet.width*.5+this.player.radius*d;
+      const moving=this.playerMovingForColorRule({orangeGrace:bullet.colorMode==="orange"});
+      const unsafe=bullet.colorMode==="blue"?moving:!moving;
+      if(near&&unsafe)this.hitPlayer(bullet,now,bullet.damage??15);
+      return;
+    }
+    if (bullet.type === "kaiserScythe") {
+      const warn=bullet.warningMs??430,travel=bullet.travelMs??720;
+      if(activeAge>=warn&&!bullet._scytheSfx){bullet._scytheSfx=true;this.kaiserSfx("scythe",180);}
+      if(activeAge<warn||activeAge>warn+travel)return;
+      const p=clamp((activeAge-warn)/travel,0,1),w=this.canvas.width,h=this.canvas.height;
+      const start=bullet.fromRight?w+70*this.dpr:-70*this.dpr,end=bullet.fromRight?-70*this.dpr:w+70*this.dpr;
+      bullet.drawX=start+(end-start)*p;
+      bullet.drawY=bullet.direction==="h"?h*.55:h*(bullet.fromRight?.28:.72)+(bullet.fromRight?1:-1)*(bullet.drawX-w*.5)*.36;
+      const near=bullet.direction==="h"
+        ?Math.abs(this.player.x-bullet.drawX)<=bullet.width*.7+this.player.radius*this.dpr
+        :Math.hypot(this.player.x-bullet.drawX,this.player.y-bullet.drawY)<=bullet.width+this.player.radius*this.dpr;
+      if(near){
+        if(performance.now()<=(this.kaiserGuardQueuedUntil??0)){
+          bullet.dead=true;this.callbacks.onKaiserGuard?.({kind:"scythe"});this.effects.push({type:"kaiserParry",x:this.player.x,y:this.player.y,age:0,life:360,radius:34*this.dpr});
+        }else this.hitPlayer(bullet,now,bullet.damage??20);
+      }
+      return;
+    }
+    if (bullet.type === "kaiserBeam") {
+      const warn=bullet.warningMs??620,end=warn+(bullet.fireMs??620);
+      if(activeAge>=warn&&!bullet._fireSfx){
+        bullet._fireSfx=true;
+        const rate=bullet.final?(bullet.arcForm?.92:1.34):Math.max(.92,Math.min(1.18,.78/Math.max(.64,(bullet.fireMs??680)/1000)));
+        this.kaiserSfx(bullet.final?"beamHeavy":"beamFire",180,{playbackRate:rate});
+      }
+      if(activeAge>=warn&&activeAge<=end){
+        const vx=bullet.x2-bullet.x1,vy=bullet.y2-bullet.y1,wx=this.player.x-bullet.x1,wy=this.player.y-bullet.y1,len2=vx*vx+vy*vy||1,t=clamp((wx*vx+wy*vy)/len2,0,1),cx=bullet.x1+vx*t,cy=bullet.y1+vy*t;
+        if(Math.hypot(this.player.x-cx,this.player.y-cy)<=bullet.width*.5+this.player.radius*this.dpr){
+          if(this.kaiserSpecial==="final"&&this.kaiserDashing){
+            // The final charge can punch directly through Deathcium beams.
+            bullet.dead=true;
+            this.effects.push({type:"kaiserBreak",x:this.player.x,y:this.player.y,age:0,life:420,radius:42*this.dpr,label:"BREAK"});
+          }else this.hitPlayer(bullet,now,bullet.damage??17);
+        }
+      }
+      return;
+    }
+    if (bullet.type === "kaiserKick") {
+      const warn=bullet.warningMs??620,impactEnd=warn+(bullet.impactMs??300);
+      if(activeAge>=warn&&!bullet._kickSfx){bullet._kickSfx=true;this.kaiserSfx(bullet.arc?"kickHeavy":"kick",150);}
+      if(activeAge>=warn&&activeAge<=impactEnd){
+        const dist=Math.hypot(this.player.x-bullet.x,this.player.y-(this.canvas.height-18*this.dpr));
+        if(dist<=bullet.radius+this.player.radius*this.dpr)this.hitPlayer(bullet,now,bullet.damage??16);
+        if(bullet.arc&&!bullet.splashDone&&activeAge>warn+80){
+          bullet.splashDone=true;
+          for(let i=0;i<12;i++){const a=-Math.PI+Math.PI*i/11,sp=(190+25*(i%3))*this.dpr;this.addBullet({type:"kaiserOrb",x:bullet.x,y:this.canvas.height-20*this.dpr,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5.4*this.dpr,damage:10,life:2600,kaiserColor:"arc"});}
+        }
+      }
+      return;
+    }
+    if (bullet.type === "kaiserClawClamp") {
+      const warn=bullet.warningMs??1200,close=bullet.closeMs??310,hold=bullet.holdMs??220,open=bullet.openMs??230;
+      if(activeAge>=warn&&!bullet._clampSfx){bullet._clampSfx=true;this.kaiserSfx("claw",220);}
+      let t=0,danger=false;
+      if(activeAge<warn)t=0;
+      else if(activeAge<warn+close){const u=clamp((activeAge-warn)/close,0,1);t=1-Math.pow(1-u,3);danger=u>=.72;}
+      else if(activeAge<warn+close+hold){t=1;danger=true;}
+      else if(activeAge<warn+close+hold+open){const u=clamp((activeAge-warn-close-hold)/open,0,1);t=1-u;danger=u<.18;}
+      bullet.closeT=t;
+      if(danger){const safe=Math.abs(this.player.x-bullet.gapX)<=bullet.gapHalf-this.player.radius*this.dpr*.35;if(!safe)this.hitPlayer(bullet,now,bullet.damage??13);}
+      return;
+    }
+    if (bullet.type === "kaiserClawMarks") {
+      const warn=bullet.warningMs??360;if(activeAge<warn||activeAge>warn+430)return;
+      const w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+      const lines=[[w*.15,h*.12,w*.8,h*.86],[w*.25,h*.1,w*.9,h*.74]];
+      for(const [x1,y1,x2,y2] of lines){const vx=x2-x1,vy=y2-y1,wx=this.player.x-x1,wy=this.player.y-y1,len2=vx*vx+vy*vy||1,t=clamp((wx*vx+wy*vy)/len2,0,1),cx=x1+vx*t,cy=y1+vy*t;if(Math.hypot(this.player.x-cx,this.player.y-cy)<=13*d+this.player.radius*d)this.hitPlayer(bullet,now,bullet.damage??8);}
+      return;
+    }
+    if (bullet.type === "kaiserArcClaw") {
+      const warn=bullet.warningMs??620;if(activeAge<warn||activeAge>warn+620)return;
+      const w=this.canvas.width,h=this.canvas.height,d=this.dpr,center=clamp(bullet.aimY??h*.5,h*.18,h*.82),slope=(bullet.flip?-1:1);
+      const lines=[[0,center-slope*h*.34,w,center+slope*h*.34],[0,center+slope*h*.20,w,center-slope*h*.20]];
+      for(const [x1,y1,x2,y2] of lines){const vx=x2-x1,vy=y2-y1,wx=this.player.x-x1,wy=this.player.y-y1,len2=vx*vx+vy*vy||1,t=clamp((wx*vx+wy*vy)/len2,0,1),cx=x1+vx*t,cy=y1+vy*t;if(Math.hypot(this.player.x-cx,this.player.y-cy)<=19*d+this.player.radius*d)this.hitPlayer(bullet,now,bullet.damage??18);}
+      return;
+    }
+    if (bullet.type === "kaiserCircleField") {
+      const dx=this.player.x-bullet.x,dy=this.player.y-bullet.y,dist=Math.hypot(dx,dy)||1,max=(bullet.radius??100*this.dpr)-this.player.radius*this.dpr-4*this.dpr;
+      if(dist>max){this.player.x=bullet.x+dx/dist*max;this.player.y=bullet.y+dy/dist*max;}
+      return;
+    }
+    if (bullet.type === "kaiserHalfField") return;
+    if (bullet.type === "kaiserHalfSlash") {
+      const warn=bullet.warningMs??260,end=warn+(bullet.activeMs??210),w=this.canvas.width,h=this.canvas.height,d=this.dpr,L=bullet.lineNorm??[.02,.18,.98,.82];
+      const x1=w*L[0],y1=h*L[1],x2=w*L[2],y2=h*L[3];bullet.drawLine={x1,y1,x2,y2};
+      if(activeAge<warn||activeAge>end)return;
+      if(!bullet._slashSfx){bullet._slashSfx=true;const kind=bullet.sfxKind??"scythe";this.kaiserSfx(kind,kind==="claw"?620:360);}
+      const vx=x2-x1,vy=y2-y1,wx=this.player.x-x1,wy=this.player.y-y1,len2=vx*vx+vy*vy||1,t=clamp((wx*vx+wy*vy)/len2,0,1),cx=x1+vx*t,cy=y1+vy*t;
+      if(Math.hypot(this.player.x-cx,this.player.y-cy)<=16*d+this.player.radius*d)this.hitPlayer(bullet,now,bullet.damage??12);
+      return;
+    }
+    if (bullet.type === "kaiserWhiteout") return;
+    if (bullet.type === "kaiserMineral") {
+      const dt=Math.min(Math.max(0,(now-(bullet._lastMoveAt??now))/1000),.04);bullet._lastMoveAt=now;bullet.x+=bullet.vx*dt;bullet.y+=bullet.vy*dt;
+      const dist=Math.hypot(this.player.x-bullet.x,this.player.y-bullet.y);if(dist<=(bullet.r??12*this.dpr)+this.player.radius*this.dpr){if(this.kaiserDashing){bullet.dead=true;this.effects.push({type:"kaiserBreak",x:bullet.x,y:bullet.y,age:0,life:360,radius:28*this.dpr,label:"SHATTER"});this.kaiserSfx("mineralBreak",90);}else this.hitPlayer(bullet,now,bullet.damage??12);}return;
+    }
+    if (bullet.type === "kaiserStalactitePair") {
+      const dt=Math.min(Math.max(0,(now-(bullet._lastMoveAt??now))/1000),.04);bullet._lastMoveAt=now;bullet.x+=bullet.vx*dt;
+      const halfW=(bullet.width??48*this.dpr)*.52,px=this.player.x,py=this.player.y,pr=this.player.radius*this.dpr;
+      if(Math.abs(px-bullet.x)<=halfW+pr&&(py-pr<bullet.gapCenter-bullet.gapHalf||py+pr>bullet.gapCenter+bullet.gapHalf)){
+        if(this.kaiserDashing){bullet.dead=true;this.effects.push({type:"kaiserBreak",x:bullet.x,y:py,age:0,life:420,radius:34*this.dpr,label:"SHATTER"});this.kaiserSfx("mineralBreak",90);}
+        else this.hitPlayer(bullet,now,bullet.damage??13);
+      }
+      if(bullet.x<-(bullet.width??48*this.dpr))bullet.dead=true;return;
+    }
+    if (bullet.type === "kaiserHeart") {
+      if(bullet.vx){const dt=Math.min(Math.max(0,(now-(bullet._lastMoveAt??now))/1000),.04);bullet._lastMoveAt=now;bullet.x=Math.max(this.canvas.width*.78,bullet.x+bullet.vx*dt);}
+      const dist=Math.hypot(this.player.x-bullet.x,this.player.y-bullet.y);
+      if(this.kaiserCorridorProgress>=.985&&this.kaiserDashing&&dist<=(bullet.r??42*this.dpr)+this.player.radius*this.dpr+12*this.dpr&&!this.kaiserFinalCoreBroken){this.kaiserFinalCoreBroken=true;bullet.dead=true;this.effects.push({type:"kaiserCoreBreak",x:bullet.x,y:bullet.y,age:0,life:1250,radius:82*this.dpr,label:"BREAK"});this.kaiserSfx("coreBreak",0);this.callbacks.onKaiserCoreBreak?.();}
       return;
     }
 
@@ -5457,6 +6119,10 @@ export class BulletSystem {
   }
 
   hitPlayer(bullet, now, damage) {
+    // Final mineral-corridor rule: the Z charge is absolute invulnerability.  This guard lives at
+    // the common damage entry point so lightning, claws, projectiles and any future corridor attack
+    // cannot accidentally bypass the authored rule.
+    if (this.kaiserSpecial==="final" && this.kaiserDashing) return;
     if (now < this.player.invulnerableUntil) return;
     if (["pellet","fireball","chaosShard","memoryThorn","mephistoTarget","mephistoDrainOrb","mephistoSpear","zagiOrb","zagiNeedle","zagiHoming","zagiRush","zagiDarkNode","zagiReturnOrb","chaosMirror","chaosOrderNode","chaosHatredOrb","chaosHeartOrb","chaosDarkOrb","originalOrb","originalRush","zettonBlinkStrike","greezaRainShot"].includes(bullet.type)) bullet.dead = true;
     if (this.allyShieldCharges > 0) {
@@ -5500,6 +6166,7 @@ export class BulletSystem {
   clear() { this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); }
 
   drawArenaBackground(now) {
+    if(this.mode === "kaiser"){ this.drawKaiserBackdrop(now); return; }
     const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height, bg = ctx.createLinearGradient(0, 0, 0, h);
     if (this.mode === "original") { bg.addColorStop(0, "rgba(8,18,28,.99)"); bg.addColorStop(1, "rgba(2,5,10,1)"); }
     else if (this.mode === "guard") { bg.addColorStop(0, "rgba(10,13,23,.99)"); bg.addColorStop(1, "rgba(3,5,11,1)"); }
@@ -5540,6 +6207,199 @@ export class BulletSystem {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+
+  drawKaiserBackdrop(now){
+    const ctx=this.ctx,w=this.canvas.width,h=this.canvas.height,d=this.dpr;
+    const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,"rgba(22,3,8,1)");g.addColorStop(.58,"rgba(7,5,10,1)");g.addColorStop(1,"rgba(1,3,6,1)");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    if(this.kaiserSpecial==="chase"){
+      // The original battle box remains visible long enough for the claws to actually tear it
+      // apart. No hostile pattern starts until after this beat.
+      if(this.elapsed<4500){
+        const t=clamp(this.elapsed/4500,0,1),left=w*.12,right=w*.88,top=h*.12,bottom=h*.88,cx=w*.5;
+        ctx.save();ctx.fillStyle="rgba(1,2,5,.99)";ctx.fillRect(left,top,right-left,bottom-top);ctx.strokeStyle="rgba(226,233,239,.92)";ctx.lineWidth=2*d;ctx.strokeRect(left,top,right-left,bottom-top);
+        const ease=1-Math.pow(1-t,2.5),spread=(5+205*ease)*d;ctx.strokeStyle=`rgba(255,35,63,${.36+.62*ease})`;ctx.shadowBlur=(8+22*ease)*d;ctx.shadowColor="rgba(255,25,55,.92)";ctx.lineWidth=(1.5+4*ease)*d;
+        const crack=(side)=>{ctx.beginPath();ctx.moveTo(cx,top+6*d);for(let i=1;i<=10;i++){const yy=top+(bottom-top)*i/11,xx=cx+side*(Math.sin(i*2.17)*10*d+spread*Math.pow(i/10,.9));ctx.lineTo(xx,yy);}ctx.lineTo(cx+side*spread,bottom-5*d);ctx.stroke();};crack(-1);crack(1);
+        if(t>.56){ctx.globalAlpha=(t-.56)/.44;ctx.fillStyle="rgba(102,0,24,.18)";ctx.fillRect(left,top,cx-left-spread*.1,bottom-top);ctx.fillRect(cx+spread*.1,top,right-cx-spread*.1,bottom-top);}
+        ctx.restore();return;
+      }
+      ctx.save();
+      // True parallax starfield: bright stars, red stars and long high-speed streaks move at
+      // different depths, while red nebula ribbons drift independently behind them.
+      const travel=(this.elapsed-4500)/1000;
+      const neb=ctx.createRadialGradient(w*.58,h*.40,0,w*.58,h*.40,w*.72);neb.addColorStop(0,"rgba(118,0,27,.16)");neb.addColorStop(.5,"rgba(36,0,12,.08)");neb.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=neb;ctx.fillRect(0,0,w,h);
+      for(const star of this.kaiserStars??[]){
+        const speed=.12+.54*star.z,sx=((star.x-travel*speed)%1+1)%1*w,sy=((star.y+travel*(.015+.045*star.z))%1)*h;
+        const len=(5+46*star.z*star.z)*d,tw=.74+.26*Math.sin(travel*5+star.tw*9);ctx.globalAlpha=(.28+.68*star.z)*tw;
+        ctx.strokeStyle=star.tw>.73?"rgba(255,77,102,.94)":star.z>.62?"rgba(255,211,218,.95)":"rgba(167,184,210,.84)";ctx.lineWidth=(.55+1.65*star.z)*d;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-len,sy+len*.035);ctx.stroke();
+      }
+      for(let i=0;i<7;i++){const y=h*(.09+i*.145)+Math.sin(travel*1.3+i*.8)*22*d;ctx.globalAlpha=.12+(i%3)*.035;ctx.strokeStyle=i%2?"rgba(194,15,48,.9)":"rgba(116,3,30,.82)";ctx.lineWidth=(1.5+(i%2))*d;ctx.beginPath();ctx.moveTo(-80*d,y);ctx.bezierCurveTo(w*.22,y-38*d,w*.58,y+42*d,w+100*d,y-12*d);ctx.stroke();}
+      ctx.globalAlpha=.2;for(let i=0;i<9;i++){const x=((w+160*d)-((travel*(240+i*18)*d+i*123*d)%(w+320*d)));ctx.strokeStyle="rgba(255,48,76,.62)";ctx.lineWidth=(1+i%3)*d;ctx.beginPath();ctx.moveTo(x,h*(.08+(i*83%84)/100));ctx.lineTo(x-110*d,h*(.08+(i*83%84)/100)+4*d);ctx.stroke();}
+      ctx.restore();return;
+    }
+    if(this.kaiserSpecial==="final"){
+      ctx.save();
+      const travel=this.elapsed/1000,boost=this.kaiserDashing?1.65:1,scroll=travel*boost;
+      const tunnel=ctx.createLinearGradient(0,0,w,0);tunnel.addColorStop(0,"rgba(1,5,5,1)");tunnel.addColorStop(.42,"rgba(12,3,8,1)");tunnel.addColorStop(1,"rgba(2,4,5,1)");ctx.fillStyle=tunnel;ctx.fillRect(0,0,w,h);
+      // The corridor itself moves. Collision minerals are rooted top/bottom formations, not loose rocks.
+      for(let i=0;i<14;i++){const y=h*(.06+i*.068),x=((w+260*d)-((scroll*(250+i*13)*d+i*127*d)%(w+520*d)));ctx.globalAlpha=.10+(i%4)*.025;ctx.strokeStyle=i%3===0?"rgba(62,255,132,.52)":"rgba(255,44,71,.48)";ctx.lineWidth=(1+i%3)*d;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-210*d,y);ctx.stroke();}
+      const topGlow=ctx.createLinearGradient(0,0,0,h*.28);topGlow.addColorStop(0,"rgba(29,129,72,.17)");topGlow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=topGlow;ctx.fillRect(0,0,w,h*.3);
+      const botGlow=ctx.createLinearGradient(0,h,0,h*.72);botGlow.addColorStop(0,"rgba(29,129,72,.17)");botGlow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=botGlow;ctx.fillRect(0,h*.7,w,h*.3);
+      const edge=ctx.createLinearGradient(0,0,w,0);edge.addColorStop(0,"rgba(0,0,0,.72)");edge.addColorStop(.12,"rgba(0,0,0,.16)");edge.addColorStop(.78,"rgba(0,0,0,.04)");edge.addColorStop(1,"rgba(0,0,0,.52)");ctx.globalAlpha=.75;ctx.fillStyle=edge;ctx.fillRect(0,0,w,h);
+      ctx.restore();return;
+    }
+    if(this.kaiserSpecial==="half"){
+      const shrink=clamp(this.elapsed/6500,0,1),left=w*.245*shrink,right=w*(1-.245*shrink);
+      ctx.fillStyle="rgba(87,0,18,.18)";ctx.fillRect(left,0,right-left,h);ctx.fillStyle=`rgba(0,0,0,${.1+.84*shrink})`;ctx.fillRect(0,0,left,h);ctx.fillRect(right,0,w-right,h);
+      ctx.strokeStyle=`rgba(255,46,69,${.25+.5*shrink})`;ctx.shadowBlur=14*d;ctx.shadowColor="rgba(255,31,58,.66)";ctx.lineWidth=(1.5+1.6*shrink)*d;
+      for(let i=0;i<6;i++){const yy=h*(.04+i*.18),jag=(10+14*Math.sin(i*1.7+this.elapsed/170))*d;ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(left-jag,yy+h*.08);ctx.lineTo(left+5*d,yy+h*.14);ctx.stroke();ctx.beginPath();ctx.moveTo(right,yy+h*.02);ctx.lineTo(right+jag,yy+h*.09);ctx.lineTo(right-4*d,yy+h*.15);ctx.stroke();}
+      return;
+    }
+    const aura=ctx.createRadialGradient(w*.5,h*.22,0,w*.5,h*.22,w*.5);aura.addColorStop(0,"rgba(170,10,35,.18)");aura.addColorStop(.45,"rgba(72,0,18,.08)");aura.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=aura;ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle="rgba(179,22,43,.08)";ctx.lineWidth=1*d;for(let i=1;i<8;i++){const y=h*i/8;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  }
+
+  drawKaiserAsset(key,index,x,y,w,h,{alpha=1,rotation=0,flipX=false}={}){
+    const img=getKaiserImage(key,index);if(!img?.complete||!img.naturalWidth)return false;const ctx=this.ctx;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);if(rotation)ctx.rotate(rotation);if(flipX)ctx.scale(-1,1);ctx.imageSmoothingEnabled=false;ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();return true;
+  }
+
+  drawKaiserBoss(){
+    if(this.mode!=="kaiser")return;
+    const form=this.kaiserVisualForm??(this.kaiserPhase===0?"cloak":this.kaiserPhase===1?"nocloak":"arc");
+    // Non-looping attack sheets used to freeze on their last drawing until the next cue.
+    // Once the attack finishes, immediately flow back into a living idle in normal combat.
+    if(this.kaiserSpecial==null&&this.kaiserCanvasPoseLoop===false&&this.elapsed>=(this.kaiserCanvasPoseReturnAt??Infinity)){
+      const idle=form==="cloak"?"cloakIdle":form==="nocloak"?"noCloakIdleAggro":"arcIdleAggro";
+      this.setKaiserCanvasPose(idle,{fps:form==="nocloak"?4.35:3.7,loop:true});
+    }
+    const key=this.kaiserCanvasPoseKey||(form==="cloak"?"cloakIdle":form==="nocloak"?"noCloakIdle":"arcIdle"),frames=kaiserSequence(key);if(!frames.length)return;
+    const frameMs=1000/Math.max(1,this.kaiserCanvasPoseFps??4.2);
+    let fi=Math.floor(Math.max(0,this.elapsed-(this.kaiserCanvasPoseStarted??0))/frameMs);if(this.kaiserCanvasPoseLoop!==false)fi%=frames.length;else fi=Math.min(frames.length-1,fi);
+    const img=getKaiserImage(key,fi);if(!img?.complete||!img.naturalWidth)return;
+    const d=this.dpr;
+    let height=(form==="cloak"?230:form==="nocloak"?220:252)*d;
+    if(this.kaiserSpecial==="chase")height=226*d;
+    if(this.kaiserSpecial==="final")height=205*d;
+    if(this.kaiserSpecial==="half")height=216*d;
+    const ratio=img.naturalWidth/img.naturalHeight,width=height*ratio;
+    let x=this.kaiserCanvasX??this.canvas.width*.5,y=this.kaiserCanvasY??this.canvas.height*.2;
+    // Smooth, continuous breathing/hovering is procedural. Sprite frames add cloth/body detail,
+    // but do not make the whole character jump between generated source positions.
+    const idleLike=/idle|chasea|arcfinala/i.test(key);
+    if(idleLike){y+=Math.sin(this.elapsed/620)*3.2*d;x+=Math.sin(this.elapsed/1030)*1.3*d;}
+    // After the star chase, no-cloak Belial never stands nailed to one coordinate. The motion is
+    // broad and slow enough to read as deliberate stalking rather than sprite jitter.
+    if(form==="nocloak"&&this.kaiserSpecial==null){
+      x+=Math.sin(this.elapsed/1350)*this.canvas.width*.085+Math.sin(this.elapsed/4100)*this.canvas.width*.025;
+      y+=Math.sin(this.elapsed/820)*6.2*d+Math.sin(this.elapsed/2300)*2.8*d;
+    }
+    const slashPrelude=this.kaiserSpecial==null&&this.elapsed<(this.kaiserSlashPreludeUntil??0);
+    const slashEntry=this.kaiserSpecial==null&&this.elapsed>=(this.kaiserSlashEntryStart??Infinity)&&this.elapsed<(this.kaiserSlashEntryUntil??0);
+    const normalY=y;
+    if(slashPrelude)y=-height*.76;
+    else if(slashEntry){
+      const u=clamp((this.elapsed-this.kaiserSlashEntryStart)/Math.max(1,this.kaiserSlashEntryUntil-this.kaiserSlashEntryStart),0,1);
+      const ease=1-Math.pow(1-u,3);y=-height*.72+(normalY+height*.72)*ease;
+    }
+    // During the kick the one on-screen Kaiser actually dives at the target instead of
+    // leaving a second detached hit marker that makes him look like a pasted portrait.
+    const kick=this.bullets.find(b=>!b.dead&&b.type==="kaiserKick"&&b.activeAge>=0&&b.activeAge<=(b.life??1400));
+    if(kick){
+      const warn=kick.warningMs??620,impact=kick.impactMs??300,a=kick.activeAge,life=kick.life??1220;
+      let q=0;
+      if(a>=warn&&a<warn+impact*.68){const u=clamp((a-warn)/(impact*.68),0,1);q=1-Math.pow(1-u,3);}
+      else if(a>=warn+impact*.68&&a<warn+impact)q=1;
+      else if(a>=warn+impact){const u=clamp((a-warn-impact)/Math.max(1,life-warn-impact),0,1);q=Math.pow(1-u,2);}
+      if(q>0){x=x+(kick.x-x)*q;y=y+(this.canvas.height*.69-y)*q;}
+    }
+    if(key==="waveAction"&&this.kaiserSpecial==null){y=this.canvas.height*(.38+.22*Math.sin(this.elapsed/1040));}
+    const ctx=this.ctx;
+    if(slashPrelude){
+      // Colour pulse -> neutral red/dark beat -> next colour pulse.  The neutral beat is visible
+      // even when two adjacent instructions use the same colour, so every strike is countable.
+      const active=!!this.kaiserPreviewColor;
+      const c=active?(this.kaiserPreviewColor==="blue"?"#43c9ff":"#ff9a2f"):"#6b1821";
+      const pulse=active?(.72+.28*Math.sin(this.elapsed/72)):.36;
+      const ey=17*d,sep=12*d;
+      ctx.save();
+      if(active){ctx.globalAlpha=.16+.16*pulse;ctx.fillStyle=c;ctx.fillRect(0,0,this.canvas.width,5*d);}
+      ctx.globalAlpha=active?.94:.40;ctx.shadowBlur=(active?24+12*pulse:5)*d;ctx.shadowColor=c;ctx.strokeStyle=c;ctx.lineWidth=(active?3.4+1.3*pulse:2.1)*d;
+      ctx.beginPath();ctx.moveTo(x-sep-9*d,ey-4*d);ctx.lineTo(x-sep+4*d,ey+1*d);ctx.moveTo(x+sep+9*d,ey-4*d);ctx.lineTo(x+sep-4*d,ey+1*d);ctx.stroke();
+      if(active){ctx.globalAlpha=.34+.26*pulse;ctx.lineWidth=1.2*d;ctx.beginPath();ctx.moveTo(x-sep-14*d,ey-6*d);ctx.lineTo(x-sep+8*d,ey+2*d);ctx.moveTo(x+sep+14*d,ey-6*d);ctx.lineTo(x+sep-8*d,ey+2*d);ctx.stroke();}
+      ctx.restore();
+      return;
+    }
+    const imgTop=y-height*.18;
+    ctx.save();
+    // Scene integration: a soft dark-red pool behind the pixel sprite and a grounded shadow
+    // replace the hard "sticker" outline that v2.8.0 had.
+    const aura=ctx.createRadialGradient(x,y+height*.22,0,x,y+height*.22,height*.7);
+    aura.addColorStop(0,form==="arc"?"rgba(164,7,35,.26)":"rgba(104,0,22,.22)");aura.addColorStop(.58,"rgba(38,0,10,.10)");aura.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=aura;ctx.fillRect(x-height*.7,y-height*.35,height*1.4,height*1.25);
+    ctx.globalAlpha=.42;ctx.fillStyle="#000";ctx.beginPath();ctx.ellipse(x,y+height*.70,width*.30,height*.055,0,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=.985;ctx.imageSmoothingEnabled=false;ctx.filter="brightness(.88) saturate(.88) contrast(1.10)";ctx.shadowBlur=9*d;ctx.shadowColor=form==="arc"?"rgba(255,26,52,.38)":"rgba(118,0,25,.30)";ctx.drawImage(img,x-width/2,imgTop,width,height);ctx.filter="none";
+    // Orange/blue Battlenizer preview is shown on the current boss itself. Never draw the
+    // old full-body 'eye' images on top of him (that was the double-Kaiser bug).
+    if(this.kaiserPreviewColor){
+      const c=this.kaiserPreviewColor==="orange"?"#ff9a27":"#36bfff",ey=imgTop+height*.185,sep=8*d,pulse=.76+.24*Math.sin(this.elapsed/76);
+      ctx.globalAlpha=.98;ctx.shadowBlur=(19+9*pulse)*d;ctx.shadowColor=c;ctx.strokeStyle=c;ctx.lineWidth=(3.4+.8*pulse)*d;ctx.beginPath();ctx.moveTo(x-sep-7*d,ey-3*d);ctx.lineTo(x-sep+4*d,ey+1*d);ctx.moveTo(x+sep+7*d,ey-3*d);ctx.lineTo(x+sep-4*d,ey+1*d);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawKaiserHazard(bullet,drawY){
+    const ctx=this.ctx,d=this.dpr,w=this.canvas.width,h=this.canvas.height,age=bullet.activeAge??0;
+    if(bullet.type==="kaiserFriendlyShot"){ctx.save();ctx.translate(bullet.x,drawY);ctx.fillStyle="#e9ffff";ctx.shadowBlur=14*d;ctx.shadowColor="#7ff9ff";ctx.fillRect(-8*d,-2*d,16*d,4*d);ctx.restore();return true;}
+    if(bullet.type==="kaiserMinion"){
+      const bob=Math.sin(age/210+(bullet.phase??0))*4*d,flip=bullet.side==="right"?-1:1;ctx.save();ctx.translate(bullet.x,drawY+bob);ctx.scale(flip,1);
+      ctx.shadowBlur=15*d;ctx.shadowColor="rgba(255,34,60,.72)";ctx.fillStyle="rgba(4,4,7,.98)";ctx.strokeStyle="rgba(176,20,39,.92)";ctx.lineWidth=1.5*d;
+      ctx.beginPath();ctx.moveTo(-17*d,18*d);ctx.lineTo(-12*d,-5*d);ctx.lineTo(-4*d,-18*d);ctx.lineTo(4*d,-18*d);ctx.lineTo(12*d,-5*d);ctx.lineTo(18*d,18*d);ctx.lineTo(7*d,12*d);ctx.lineTo(0,22*d);ctx.lineTo(-8*d,12*d);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle="#ff3048";ctx.fillRect(-7*d,-7*d,5*d,2.6*d);ctx.fillRect(2*d,-7*d,5*d,2.6*d);
+      ctx.strokeStyle="rgba(255,60,78,.64)";ctx.globalAlpha=.5+.25*Math.sin(age/120);ctx.beginPath();ctx.arc(0,2*d,25*d,0,Math.PI*2);ctx.stroke();ctx.restore();return true;
+    }
+
+    if(bullet.type==="kaiserOrb"){
+      if(bullet.waveNode){const r=bullet.r??4.5*d,c=bullet.kaiserColor==="arc"?"#ff4561":"#ff2946";ctx.save();ctx.translate(bullet.x,drawY);ctx.shadowBlur=9*d;ctx.shadowColor=c;ctx.fillStyle=c;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle="rgba(255,239,242,.9)";ctx.beginPath();ctx.arc(-r*.20,-r*.22,r*.31,0,Math.PI*2);ctx.fill();ctx.restore();return true;}
+      const key="arcProjectile",frames=kaiserSequence(key),i=Math.floor(age/85)%Math.max(1,frames.length);if(!this.drawKaiserAsset(key,i,bullet.x,drawY,(bullet.r??6*d)*3.8,(bullet.r??6*d)*3.8)){ctx.save();ctx.fillStyle="#ff334d";ctx.shadowBlur=12*d;ctx.shadowColor="#ff2844";ctx.beginPath();ctx.arc(bullet.x,drawY,bullet.r??6*d,0,Math.PI*2);ctx.fill();ctx.restore();}return true;
+    }
+    if(bullet.type==="kaiserGreenArrow"){ctx.save();ctx.translate(bullet.x,drawY);if(bullet.vx<0)ctx.scale(-1,1);ctx.shadowBlur=14*d;ctx.shadowColor="#48ff87";ctx.fillStyle="rgba(83,255,139,.96)";ctx.beginPath();ctx.moveTo(14*d,0);ctx.lineTo(-7*d,-7*d);ctx.lineTo(-2*d,0);ctx.lineTo(-7*d,7*d);ctx.closePath();ctx.fill();ctx.restore();return true;}
+    if(bullet.type==="kaiserMeteor"){const i=Math.floor(age/90)%8;this.drawKaiserAsset(bullet.key||"meteorA",i,bullet.x,drawY,(bullet.r??18*d)*3,(bullet.r??18*d)*3,{rotation:age/700});return true;}
+    if(bullet.type==="kaiserClawWave"){const i=Math.floor(age/75)%8;this.drawKaiserAsset("clawFxA",i,bullet.x,drawY,(bullet.r??25*d)*3.2,(bullet.r??25*d)*2.2,{flipX:true});return true;}
+    if(bullet.type==="kaiserLightning"){const warn=bullet.warningMs??430;if(age<warn){const pulse=.5+.5*Math.sin(age/65);ctx.save();ctx.strokeStyle=`rgba(255,69,87,${.5+.4*pulse})`;ctx.lineWidth=2*d;ctx.setLineDash([4*d,5*d]);ctx.beginPath();ctx.moveTo(bullet.x,0);ctx.lineTo(bullet.x,h);ctx.stroke();ctx.restore();}else{const frames=kaiserSequence(bullet.spriteKey),i=Math.min(frames.length-1,Math.floor((age-warn)/55));this.drawKaiserAsset(bullet.spriteKey,i,bullet.x,h*.5,(bullet.big?150:92)*d,h*1.12,{alpha:.96});}return true;}
+    if(bullet.type==="kaiserColorPreview"){return true;
+    }
+    if(bullet.type==="kaiserSweep"){const warn=bullet.warningMs??120;if(age<warn)return true;const frames=kaiserSequence(bullet.key),i=Math.min(frames.length-1,Math.floor((age-warn)/Math.max(75,(bullet.activeMs??920)/Math.max(1,frames.length)))),L=bullet.drawLine;if(L){const cx=(L.x1+L.x2)/2,cy=(L.y1+L.y2)/2,ang=Math.atan2(L.y2-L.y1,L.x2-L.x1);this.drawKaiserAsset(bullet.key,i,cx,cy,w*1.16,142*d,{rotation:ang});}return true;}
+    if(bullet.type==="kaiserScythe"){const warn=bullet.warningMs??430;if(age<warn){ctx.save();ctx.globalAlpha=.65;ctx.strokeStyle="rgba(255,58,84,.9)";ctx.lineWidth=2*d;ctx.beginPath();ctx.arc(bullet.fromRight?w:w*.02,h*.55,24*d,0,Math.PI*2);ctx.stroke();ctx.restore();}else{const i=Math.floor((age-warn)/70)%6;this.drawKaiserAsset(bullet.key,i,bullet.drawX??w*.5,bullet.drawY??h*.5,150*d,110*d,{flipX:bullet.fromRight});}return true;}
+    if(bullet.type==="kaiserBeam"){const warn=bullet.warningMs??620,end=warn+(bullet.fireMs??620),vx=bullet.x2-bullet.x1,vy=bullet.y2-bullet.y1,ang=Math.atan2(vy,vx),len=Math.hypot(vx,vy),cx=(bullet.x1+bullet.x2)/2,cy=(bullet.y1+bullet.y2)/2;ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);if(age<warn){ctx.globalAlpha=.65+.25*Math.sin(age/70);ctx.strokeStyle="rgba(255,70,87,.88)";ctx.lineWidth=2*d;ctx.setLineDash([8*d,8*d]);ctx.beginPath();ctx.moveTo(-len/2,0);ctx.lineTo(len/2,0);ctx.stroke();}else if(age<=end){const pulse=.86+.14*Math.sin(age/36);ctx.globalAlpha=.96;ctx.shadowBlur=(bullet.final?36:24)*d;ctx.shadowColor="rgba(255,24,55,.95)";ctx.strokeStyle="rgba(255,34,59,.96)";ctx.lineWidth=bullet.width*pulse;ctx.beginPath();ctx.moveTo(-len/2,0);ctx.lineTo(len/2,0);ctx.stroke();ctx.strokeStyle="rgba(255,235,238,.98)";ctx.lineWidth=bullet.width*.22;ctx.stroke();}ctx.restore();return true;}
+    if(bullet.type==="kaiserKick"){const warn=bullet.warningMs??620;ctx.save();if(age<warn){ctx.fillStyle="rgba(255,87,93,.9)";ctx.font=`bold ${22*d}px sans-serif`;ctx.textAlign="center";ctx.fillText("!",bullet.x,28*d);ctx.strokeStyle="rgba(255,80,91,.55)";ctx.setLineDash([5*d,6*d]);ctx.beginPath();ctx.moveTo(bullet.x,38*d);ctx.lineTo(bullet.x,h-12*d);ctx.stroke();}else{const p=clamp((age-warn)/(bullet.impactMs??300),0,1);ctx.strokeStyle=`rgba(255,68,83,${1-p})`;ctx.lineWidth=(4+12*p)*d;ctx.beginPath();ctx.arc(bullet.x,h-20*d,(bullet.radius??34*d)*(1+p*.9),0,Math.PI*2);ctx.stroke();}ctx.restore();return true;}
+    if(bullet.type==="kaiserClawClamp"){const warn=bullet.warningMs??1700,t=age<warn?0:(bullet.closeT??0),gap=bullet.gapHalf??70*d,gx=bullet.gapX??w*.5,reach=h*.20+h*.36*t;ctx.save();const pulse=.82+.18*Math.sin(age/100);ctx.fillStyle=`rgba(177,8,35,${.88+.08*t})`;ctx.shadowBlur=(10+10*t)*d;ctx.shadowColor="rgba(255,42,65,.72)";const tooth=32*d;for(let x=0;x<w;x+=tooth){if(Math.abs(x+tooth*.5-gx)<gap)continue;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+tooth*.5,reach);ctx.lineTo(x+tooth,0);ctx.fill();ctx.beginPath();ctx.moveTo(x,h);ctx.lineTo(x+tooth*.5,h-reach);ctx.lineTo(x+tooth,h);ctx.fill();}if(age<warn){ctx.globalAlpha=.32+.24*pulse;ctx.strokeStyle="#ff5a72";ctx.lineWidth=2*d;ctx.setLineDash([7*d,7*d]);ctx.strokeRect(gx-gap+5*d,6*d,gap*2-10*d,h-12*d);}ctx.restore();return true;}
+    if(bullet.type==="kaiserClawMarks"){const key="clawFxB",frames=kaiserSequence(key),warn=bullet.warningMs??360;if(age<warn){ctx.save();ctx.globalAlpha=.55;ctx.strokeStyle="#ff596e";ctx.lineWidth=2*d;ctx.strokeRect(10*d,10*d,w-20*d,h-20*d);ctx.restore();}else{const i=Math.floor((age-warn)/80)%Math.max(1,frames.length);this.drawKaiserAsset(key,i,w*.5,h*.52,w*.96,h*.9,{flipX:!!bullet.flip});}return true;}
+    if(bullet.type==="kaiserArcClaw"){const warn=bullet.warningMs??620,center=clamp(bullet.aimY??h*.5,h*.18,h*.82),sg=bullet.flip?-1:1,lines=[[0,center-sg*h*.34,w,center+sg*h*.34],[0,center+sg*h*.20,w,center-sg*h*.20]];ctx.save();for(const L of lines){if(age<warn){ctx.globalAlpha=.55+.2*Math.sin(age/70);ctx.strokeStyle="rgba(255,100,116,.88)";ctx.lineWidth=2*d;ctx.setLineDash([8*d,7*d]);}else{ctx.globalAlpha=.98;ctx.strokeStyle="#ff244a";ctx.shadowBlur=24*d;ctx.shadowColor="#ff1d3f";ctx.lineWidth=18*d;ctx.setLineDash([]);}ctx.beginPath();ctx.moveTo(L[0],L[1]);ctx.lineTo(L[2],L[3]);ctx.stroke();}ctx.restore();return true;}
+    if(bullet.type==="kaiserCircleField"){ctx.save();ctx.strokeStyle="rgba(255,52,76,.88)";ctx.shadowBlur=18*d;ctx.shadowColor="rgba(255,39,68,.75)";ctx.lineWidth=3*d;ctx.beginPath();ctx.arc(bullet.x,bullet.y,bullet.radius,0,Math.PI*2);ctx.stroke();ctx.restore();return true;}
+    if(bullet.type==="kaiserHalfField")return true;
+    if(bullet.type==="kaiserHalfSlash"){const warn=bullet.warningMs??260,active=bullet.activeMs??210,tail=110,L=bullet.drawLine??(()=>{const n=bullet.lineNorm??[.02,.18,.98,.82];return{x1:w*n[0],y1:h*n[1],x2:w*n[2],y2:h*n[3]};})();if(age>warn+active+tail)return true;ctx.save();if(age<warn){ctx.globalAlpha=.70;ctx.strokeStyle="rgba(255,102,116,.88)";ctx.lineWidth=2*d;ctx.setLineDash([9*d,7*d]);}else{const fade=age>warn+active?1-(age-warn-active)/tail:1;ctx.globalAlpha=.96*clamp(fade,0,1);ctx.strokeStyle="rgba(255,27,55,.98)";ctx.shadowBlur=18*d;ctx.shadowColor="#ff1d3f";ctx.lineWidth=14*d;}ctx.beginPath();ctx.moveTo(L.x1,L.y1);ctx.lineTo(L.x2,L.y2);ctx.stroke();ctx.restore();return true;}
+    if(bullet.type==="kaiserWhiteout"){ctx.save();const t=clamp(age/650,0,1);ctx.globalAlpha=Math.sin(Math.min(1,t)*Math.PI*.5)*.92;ctx.fillStyle="white";ctx.fillRect(0,0,w,h);ctx.restore();return true;}
+    if(bullet.type==="kaiserAbsorbMineral"){const i=Math.floor(age/110)%8;this.drawKaiserAsset(bullet.key||"emeraldSmall",i,bullet.x,bullet.y,(bullet.r??10*d)*3.1,(bullet.r??10*d)*3.1,{rotation:age/620});return true;}
+    if(bullet.type==="kaiserStalactitePair"){
+      const x=bullet.x,halfW=(bullet.width??48*d)*.5,gc=bullet.gapCenter,gh=bullet.gapHalf,topDepth=Math.max(0,gc-gh),bottomStart=Math.min(h,gc+gh),seed=bullet.seed??0;
+      ctx.save();ctx.shadowBlur=13*d;ctx.shadowColor="rgba(65,255,139,.5)";ctx.fillStyle="rgba(11,54,34,.98)";ctx.strokeStyle="rgba(91,255,158,.96)";ctx.lineWidth=1.55*d;
+      const rootedCluster=(top=true)=>{
+        const base=top?0:h,dir=top?1:-1,target=top?topDepth:bottomStart;
+        const prongs=[[-.58,.70],[-.05,1],[.52,.76]];
+        for(let k=0;k<prongs.length;k++){
+          const [ox,depthScale]=prongs[k],cx=x+halfW*ox;
+          const localHalf=halfW*(k===1?.34:.27);
+          const jitter=(8+((seed+k*3)%7)*3)*d;
+          const tip=top?Math.max(jitter,target*depthScale):Math.min(h-jitter,h-(h-target)*depthScale);
+          ctx.beginPath();ctx.moveTo(cx-localHalf,base);ctx.lineTo(cx-localHalf*.42,base+dir*jitter);ctx.lineTo(cx,tip);ctx.lineTo(cx+localHalf*.45,base+dir*(jitter*.72));ctx.lineTo(cx+localHalf,base);ctx.closePath();ctx.fill();ctx.stroke();
+          ctx.save();ctx.globalAlpha=.58;ctx.strokeStyle="rgba(221,255,233,.88)";ctx.lineWidth=.9*d;ctx.beginPath();ctx.moveTo(cx-localHalf*.18,base+dir*4*d);ctx.lineTo(cx-1*d,top?Math.max(0,tip-dir*9*d):Math.min(h,tip-dir*9*d));ctx.stroke();ctx.restore();
+        }
+      };
+      rootedCluster(true);rootedCluster(false);ctx.restore();return true;
+    }
+    if(bullet.type==="kaiserMineral"){const i=Math.floor(age/100)%8;this.drawKaiserAsset(bullet.key||"emeraldSmall",i,bullet.x,bullet.y,(bullet.r??12*d)*3,(bullet.r??12*d)*3,{rotation:age/850});return true;}
+    if(bullet.type==="kaiserHeart"){const key=this.kaiserFinalCoreBroken?"heartBreak":"heartA",frames=kaiserSequence(key),i=Math.floor(age/90)%Math.max(1,frames.length);const pulse=1+.06*Math.sin(age/120);this.drawKaiserAsset(key,i,bullet.x,bullet.y,128*d*pulse,128*d*pulse);return true;}
+    return false;
   }
 
   drawGateBackdrop(now) {
@@ -5916,8 +6776,15 @@ export class BulletSystem {
   }
 
   drawBullet(bullet) {
-    if (bullet.delay > 0) { this.drawTelegraph(bullet); return; }
-    if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam"].includes(bullet.type)) { this.drawHazard(bullet); return; }
+    if (bullet.delay > 0) {
+      // Kaiser hazards own their telegraphs. Some of them are full-screen lines or
+      // sprite attacks and do not have a meaningful generic x/y telegraph point.
+      if (String(bullet.type ?? "").startsWith("kaiser")) return;
+      this.drawTelegraph(bullet);
+      return;
+    }
+    if (String(bullet.type ?? "").startsWith("kaiser") && this.drawKaiserHazard(bullet, bullet.y)) return;
+    if (["fissure", "tentacle", "darkcorridor", "petrify", "swoop", "chaosLance", "sacredFire", "gateChain", "gateRupture", "magmaSlash", "nexusTentacle", "circuitArc", "lightningColumn", "darkBeam", "freezeRay", "timeStopBand", "memorySweep", "grandBeam", "grandShock", "lugielLance", "lugielSlash", "lugielBladeGate", "lugielClockSweep", "girasWave", "pressureWarp", "pressureBalloon", "mephistoClaw", "mephistoCross", "zagiSweep", "zagiLightning", "zagiShockRing", "chaosPanel", "chaosProminence", "chaosBrokenHalo", "belialBattlenizerSweep", "belialLightning", "belialScytheGuard", "belialClawClamp", "belialDeathciumBeam", "belialDuelField", "belialGalaxyField", "belialAbyssField", "belialFinalClash", "grandKingAdvance", "grandSensorBeam", "grandThrowArm", "grandDebris", "grandFist", "grandDustWave", "grandBarrageCannons", "grandBarrageWave", "grandLaserHole", "fiveSonicWave", "fiveResonanceNode", "fiveLaneFrame", "fiveLaneLaser", "fiveWindmill", "fiveFallField", "fiveFallDebris", "fiveFreezeBeam", "fiveFireRay", "zettonFireballBurst", "greezaThunderSmash", "greezaVortex", "greezaSoundCore", "greezaSoundWave", "greezaHelix", "greezaWaveCannon", "zettonReturnBeam", "kaiserMinion", "kaiserLightning", "kaiserSweep", "kaiserScythe", "kaiserBeam", "kaiserKick", "kaiserClawClamp", "kaiserClawMarks", "kaiserArcClaw", "kaiserCircleField", "kaiserHalfField", "kaiserHalfSlash", "kaiserWhiteout", "kaiserMineral", "kaiserStalactitePair", "kaiserHeart", "kaiserColorPreview", "kaiserAbsorbMineral"].includes(bullet.type)) { this.drawHazard(bullet); return; }
     const ctx = this.ctx, r = bullet.r, dpr = this.dpr;
     const drawY = bullet.worldSpace && this.mode === "platform" ? this.platformScreenY(bullet.y) : bullet.y;
     if (bullet.type === "zettonBlinkStrike") {
@@ -6897,6 +7764,19 @@ export class BulletSystem {
         ctx.restore();continue;
       }
 
+      if (["kaiserDash","kaiserDashTrail","kaiserBreak","kaiserParry","kaiserCoreBreak"].includes(effect.type)) {
+        ctx.save();ctx.globalAlpha=Math.max(0,1-t);
+        const dash=effect.type==="kaiserDash"||effect.type==="kaiserDashTrail",core=effect.type==="kaiserCoreBreak",parry=effect.type==="kaiserParry";
+        ctx.strokeStyle=core?"rgba(126,255,173,.98)":parry?"rgba(255,238,205,.98)":dash?"rgba(184,255,230,.95)":"rgba(95,255,155,.96)";
+        ctx.fillStyle=core?"rgba(122,255,171,.24)":"rgba(255,255,255,.06)";
+        ctx.lineWidth=(core?4:parry?2.8:2)*dpr;ctx.shadowBlur=(core?28:18)*dpr;ctx.shadowColor=ctx.strokeStyle;
+        if(dash){ctx.beginPath();ctx.moveTo(effect.x-70*dpr*(.6+t),drawY);ctx.lineTo(effect.x+18*dpr,drawY);ctx.stroke();ctx.beginPath();ctx.moveTo(effect.x-44*dpr,drawY-10*dpr);ctx.lineTo(effect.x+10*dpr,drawY);ctx.lineTo(effect.x-44*dpr,drawY+10*dpr);ctx.stroke();}
+        else{ctx.beginPath();ctx.arc(effect.x,drawY,(effect.radius??30*dpr)*(.42+t*(core?1.8:1.15)),0,Math.PI*2);ctx.fill();ctx.stroke();}
+        if(core){for(let i=0;i<8;i++){const a=i*Math.PI/4+t*.4,r=(effect.radius??60*dpr)*(1.1+t*1.5);ctx.beginPath();ctx.moveTo(effect.x+Math.cos(a)*r*.2,drawY+Math.sin(a)*r*.2);ctx.lineTo(effect.x+Math.cos(a)*r,drawY+Math.sin(a)*r);ctx.stroke();}}
+        if(effect.label){ctx.fillStyle="#fff";ctx.font=`900 ${Math.round(11*dpr)}px sans-serif`;ctx.textAlign="center";ctx.fillText(effect.label,effect.x,drawY-28*dpr-t*8*dpr);}
+        ctx.restore();continue;
+      }
+
       if (["nexusShot","nexusPulse","nexusParry","nexusParryHit","nexusBreak","noaPulse","noaReturn"].includes(effect.type)) {
         ctx.save();ctx.globalAlpha=1-t;
         const noa=["noaPulse","noaReturn"].includes(effect.type),bad=false;
@@ -6963,6 +7843,7 @@ export class BulletSystem {
   draw(now) {
     this.clear();
     this.drawArenaBackground(now);
+    if (this.mode === "kaiser") this.drawKaiserBoss(now);
     if (this.mode === "platform") this.drawPlatforms(now);
     for (const bullet of this.bullets) this.drawBullet(bullet);
     this.drawEffects();

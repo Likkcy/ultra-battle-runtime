@@ -49,7 +49,30 @@ export class SoundSystem {
       original_greeza_battle: { url: new URL("../../assets/audio/original_greeza_battle.ogg", import.meta.url).href, volume: .17, loop: true },
       original_grand_king_battle: { url: new URL("../../assets/audio/original_grand_king_battle.ogg", import.meta.url).href, volume: .17, loop: true },
       original_five_king_battle: { url: new URL("../../assets/audio/original_five_king_battle.ogg", import.meta.url).href, volume: .17, loop: true },
-      original_belial_battle: { url: new URL("../../assets/audio/original_belial_battle.ogg", import.meta.url).href, volume: .17, loop: true }
+      original_belial_battle: { url: new URL("../../assets/audio/original_belial_battle.ogg", import.meta.url).href, volume: .17, loop: true },
+      // Kaiser Belial one-shot sound layer. These short local WAVs are kept separate
+      // from music so attacks can stack without interrupting the soundtrack.
+      kaiser_sfx_dialogue: { url: new URL("../../assets/audio/sfx/kaiser/dialogue_tick.wav", import.meta.url).href, volume: .055, loop: false },
+      kaiser_sfx_projectile: { url: new URL("../../assets/audio/sfx/kaiser/projectile.wav", import.meta.url).href, volume: .16, loop: false },
+      kaiser_sfx_lightning: { url: new URL("../../assets/audio/sfx/kaiser/lightning.wav", import.meta.url).href, volume: .22, loop: false },
+      kaiser_sfx_lightning_heavy: { url: new URL("../../assets/audio/sfx/kaiser/lightning_heavy.wav", import.meta.url).href, volume: .29, loop: false },
+      kaiser_sfx_slash_orange: { url: new URL("../../assets/audio/sfx/kaiser/slash_orange.wav", import.meta.url).href, volume: .18, loop: false },
+      kaiser_sfx_slash_blue: { url: new URL("../../assets/audio/sfx/kaiser/slash_blue.wav", import.meta.url).href, volume: .18, loop: false },
+      kaiser_sfx_scythe: { url: new URL("../../assets/audio/sfx/kaiser/scythe.wav", import.meta.url).href, volume: .22, loop: false },
+      kaiser_sfx_beam_charge: { url: new URL("../../assets/audio/sfx/kaiser/beam_charge.wav", import.meta.url).href, volume: .18, loop: false },
+      kaiser_sfx_beam_fire: { url: new URL("../../assets/audio/sfx/kaiser/beam_fire.wav", import.meta.url).href, volume: .23, loop: false },
+      kaiser_sfx_beam_heavy: { url: new URL("../../assets/audio/sfx/kaiser/beam_heavy.wav", import.meta.url).href, volume: .28, loop: false },
+      kaiser_sfx_claw: { url: new URL("../../assets/audio/sfx/kaiser/claw.wav", import.meta.url).href, volume: .21, loop: false },
+      kaiser_sfx_kick: { url: new URL("../../assets/audio/sfx/kaiser/kick.wav", import.meta.url).href, volume: .21, loop: false },
+      kaiser_sfx_kick_heavy: { url: new URL("../../assets/audio/sfx/kaiser/kick_heavy.wav", import.meta.url).href, volume: .25, loop: false },
+      kaiser_sfx_transform: { url: new URL("../../assets/audio/sfx/kaiser/transform.wav", import.meta.url).href, volume: .23, loop: false },
+      kaiser_sfx_transform_heavy: { url: new URL("../../assets/audio/sfx/kaiser/transform_heavy.wav", import.meta.url).href, volume: .31, loop: false },
+      kaiser_sfx_dash: { url: new URL("../../assets/audio/sfx/kaiser/dash.wav", import.meta.url).href, volume: .17, loop: false },
+      kaiser_sfx_mineral_break: { url: new URL("../../assets/audio/sfx/kaiser/mineral_break.wav", import.meta.url).href, volume: .22, loop: false },
+      kaiser_sfx_core_reveal: { url: new URL("../../assets/audio/sfx/kaiser/core_reveal.wav", import.meta.url).href, volume: .24, loop: false },
+      kaiser_sfx_core_break: { url: new URL("../../assets/audio/sfx/kaiser/core_break.wav", import.meta.url).href, volume: .32, loop: false },
+      kaiser_sfx_tear: { url: new URL("../../assets/audio/sfx/kaiser/tear.wav", import.meta.url).href, volume: .24, loop: false },
+      kaiser_sfx_roar: { url: new URL("../../assets/audio/sfx/kaiser/roar.wav", import.meta.url).href, volume: .24, loop: false }
     };
     this.musicBuffers = new Map();
     this.currentMusic = null;
@@ -174,6 +197,7 @@ export class SoundSystem {
     const delayMs = Math.max(0, options.delayMs ?? 0);
     source.buffer = buffer;
     source.loop = false;
+    source.playbackRate.value = Math.max(.25, Math.min(4, options.playbackRate ?? 1));
     gain.gain.value = volume;
     source.connect(gain).connect(ctx.destination);
     this.oneShotSources.add(source);
@@ -490,6 +514,61 @@ export class SoundSystem {
     if (!this.enabled) return;
     [196,294,392,587,784,1175].forEach((f,i)=>setTimeout(()=>this.tone(f,.48,i<2?"sine":"triangle",.017+i*.0015,f*1.03),i*85));
     setTimeout(()=>this.tone(82,.95,"sawtooth",.035,34),430);
+  }
+
+  preloadKaiserSfx() {
+    const keys = Object.keys(this.musicDefs).filter((key) => key.startsWith("kaiser_sfx_"));
+    return Promise.allSettled(keys.map((key) => this.loadMusicBuffer(key)));
+  }
+
+  playKaiserSfx(name, payload = {}) {
+    if (!this.enabled) return false;
+    const table = {
+      projectile: ["kaiser_sfx_projectile", .095],
+      lightning: ["kaiser_sfx_lightning", .11],
+      lightningStrike: ["kaiser_sfx_lightning", .12],
+      lightningHeavy: ["kaiser_sfx_lightning_heavy", .135],
+      slashOrange: ["kaiser_sfx_slash_orange", .10],
+      slashBlue: ["kaiser_sfx_slash_blue", .10],
+      scythe: ["kaiser_sfx_scythe", .10],
+      beamCharge: ["kaiser_sfx_beam_charge", .095],
+      beamFire: ["kaiser_sfx_beam_fire", .105],
+      beamHeavy: ["kaiser_sfx_beam_heavy", .125],
+      claw: ["kaiser_sfx_claw", .105],
+      kick: ["kaiser_sfx_kick", .10],
+      kickHeavy: ["kaiser_sfx_kick_heavy", .12],
+      transform: ["kaiser_sfx_transform", .105],
+      transformHeavy: ["kaiser_sfx_transform_heavy", .10],
+      dash: ["kaiser_sfx_dash", .095],
+      mineralBreak: ["kaiser_sfx_mineral_break", .11],
+      coreReveal: ["kaiser_sfx_core_reveal", .10],
+      coreBreak: ["kaiser_sfx_core_break", .14],
+      tear: ["kaiser_sfx_tear", .12],
+      roar: ["kaiser_sfx_roar", .105]
+    };
+    const entry = table[name];
+    if (!entry) return false;
+    const rate = Math.max(.80, Math.min(1.65, Number(payload.playbackRate ?? 1)));
+    return this.playAssetOnce(entry[0], { volume: entry[1], playbackRate: rate });
+  }
+
+  playKaiserType(char = "", index = 0) {
+    if (!this.enabled || !char || /[\s，。！？…：“”、《》,.!?；;：:（）()—-]/.test(char)) return false;
+    const now = performance.now();
+    if (now - (this._kaiserTypeAt ?? 0) < 27) return false;
+    this._kaiserTypeAt = now;
+    const rate = .92 + ((index * 7) % 9) * .017;
+    return this.playAssetOnce("kaiser_sfx_dialogue", { volume: .052, playbackRate: rate });
+  }
+
+  playDialogueTick(char = "", index = 0, kaiser = false) {
+    if (!this.enabled || !char || /[\s，。！？…：“”、《》,.!?；;：:（）()—-]/.test(char)) return;
+    if (kaiser) { this.playKaiserType(char, index); return; }
+    const now = performance.now();
+    if (now - (this._dialogueTickAt ?? 0) < 32) return;
+    this._dialogueTickAt = now;
+    const f = 420 + ((index * 37) % 5) * 28;
+    this.tone(f, .028, "square", .006, f * 1.06);
   }
 
   play(name) {

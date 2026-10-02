@@ -13,7 +13,8 @@ export const originalTrials = Object.freeze([
   "original-greeza",
   "original-grand-king",
   "original-five-king",
-  "original-belial"
+  "original-belial",
+  "trial-kaiser-belial"
 ]);
 
 function emptyState() {

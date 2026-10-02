@@ -1,0 +1,751 @@
+{
+  "cloakPortrait": [
+    "cloak_portrait_00.webp"
+  ],
+  "noCloakPortrait": [
+    "nocloak_portrait_00.webp"
+  ],
+  "arcPortrait": [
+    "arc_portrait_00.webp"
+  ],
+  "cloakIdle": [
+    "cloak_idle_00.webp",
+    "cloak_idle_01.webp",
+    "cloak_idle_02.webp",
+    "cloak_idle_03.webp",
+    "cloak_idle_04.webp",
+    "cloak_idle_05.webp",
+    "cloak_idle_06.webp",
+    "cloak_idle_07.webp",
+    "cloak_idle_08.webp",
+    "cloak_idle_09.webp"
+  ],
+  "cloakIdleAlt": [
+    "cloak_idle_alt_00.webp",
+    "cloak_idle_alt_01.webp",
+    "cloak_idle_alt_02.webp",
+    "cloak_idle_alt_03.webp",
+    "cloak_idle_alt_04.webp",
+    "cloak_idle_alt_05.webp",
+    "cloak_idle_alt_06.webp",
+    "cloak_idle_alt_07.webp",
+    "cloak_idle_alt_08.webp",
+    "cloak_idle_alt_09.webp"
+  ],
+  "noCloakIdle": [
+    "nocloak_idle_00.webp",
+    "nocloak_idle_01.webp",
+    "nocloak_idle_02.webp",
+    "nocloak_idle_03.webp",
+    "nocloak_idle_04.webp",
+    "nocloak_idle_05.webp",
+    "nocloak_idle_06.webp",
+    "nocloak_idle_07.webp",
+    "nocloak_idle_08.webp",
+    "nocloak_idle_09.webp"
+  ],
+  "noCloakIdleAggro": [
+    "nocloak_idle_aggro_00.webp",
+    "nocloak_idle_aggro_01.webp",
+    "nocloak_idle_aggro_02.webp",
+    "nocloak_idle_aggro_03.webp",
+    "nocloak_idle_aggro_04.webp",
+    "nocloak_idle_aggro_05.webp",
+    "nocloak_idle_aggro_06.webp",
+    "nocloak_idle_aggro_07.webp",
+    "nocloak_idle_aggro_08.webp",
+    "nocloak_idle_aggro_09.webp"
+  ],
+  "arcIdle": [
+    "arc_idle_00.webp",
+    "arc_idle_01.webp",
+    "arc_idle_02.webp",
+    "arc_idle_03.webp",
+    "arc_idle_04.webp",
+    "arc_idle_05.webp",
+    "arc_idle_06.webp",
+    "arc_idle_07.webp",
+    "arc_idle_08.webp",
+    "arc_idle_09.webp",
+    "arc_idle_10.webp",
+    "arc_idle_11.webp"
+  ],
+  "arcIdleAggro": [
+    "arc_idle_aggro_00.webp",
+    "arc_idle_aggro_01.webp",
+    "arc_idle_aggro_02.webp",
+    "arc_idle_aggro_03.webp",
+    "arc_idle_aggro_04.webp",
+    "arc_idle_aggro_05.webp",
+    "arc_idle_aggro_06.webp",
+    "arc_idle_aggro_07.webp",
+    "arc_idle_aggro_08.webp",
+    "arc_idle_aggro_09.webp",
+    "arc_idle_aggro_10.webp",
+    "arc_idle_aggro_11.webp"
+  ],
+  "cloakPoses": [
+    "cloak_pose_13_00.webp",
+    "cloak_pose_14_00.webp",
+    "cloak_pose_15_00.webp",
+    "cloak_pose_16_00.webp",
+    "cloak_pose_17_00.webp",
+    "cloak_pose_18_00.webp",
+    "cloak_pose_19_00.webp",
+    "cloak_pose_20_00.webp",
+    "cloak_pose_21_00.webp",
+    "cloak_pose_22_00.webp",
+    "cloak_pose_23_00.webp",
+    "cloak_pose_24_00.webp",
+    "cloak_pose_25_00.webp",
+    "cloak_pose_26_00.webp",
+    "cloak_pose_27_00.webp",
+    "cloak_pose_28_00.webp",
+    "cloak_pose_29_00.webp",
+    "cloak_pose_30_00.webp"
+  ],
+  "noCloakActions": [
+    "nocloak_action_00.webp",
+    "nocloak_action_01.webp",
+    "nocloak_action_02.webp",
+    "nocloak_action_03.webp",
+    "nocloak_action_04.webp",
+    "nocloak_action_05.webp",
+    "nocloak_action_06.webp",
+    "nocloak_action_07.webp"
+  ],
+  "staffSweepH": [
+    "staff_h_00.webp",
+    "staff_h_01.webp",
+    "staff_h_02.webp",
+    "staff_h_03.webp",
+    "staff_h_04.webp",
+    "staff_h_05.webp",
+    "staff_h_06.webp",
+    "staff_h_07.webp"
+  ],
+  "staffSweepD": [
+    "staff_d_00.webp",
+    "staff_d_01.webp",
+    "staff_d_02.webp",
+    "staff_d_03.webp",
+    "staff_d_04.webp",
+    "staff_d_05.webp",
+    "staff_d_06.webp",
+    "staff_d_07.webp"
+  ],
+  "staffSweepR": [
+    "staff_r_00.webp",
+    "staff_r_01.webp",
+    "staff_r_02.webp",
+    "staff_r_03.webp",
+    "staff_r_04.webp",
+    "staff_r_05.webp",
+    "staff_r_06.webp",
+    "staff_r_07.webp"
+  ],
+  "clawAction": [
+    "claw_action_00.webp",
+    "claw_action_01.webp",
+    "claw_action_02.webp",
+    "claw_action_03.webp",
+    "claw_action_04.webp",
+    "claw_action_05.webp",
+    "claw_action_06.webp",
+    "claw_action_07.webp",
+    "claw_action_08.webp",
+    "claw_action_09.webp"
+  ],
+  "beamAction": [
+    "beam_action_00.webp",
+    "beam_action_01.webp",
+    "beam_action_02.webp",
+    "beam_action_03.webp",
+    "beam_action_04.webp",
+    "beam_action_05.webp",
+    "beam_action_06.webp",
+    "beam_action_07.webp",
+    "beam_action_08.webp",
+    "beam_action_09.webp"
+  ],
+  "waveAction": [
+    "wave_action_00.webp",
+    "wave_action_01.webp",
+    "wave_action_02.webp",
+    "wave_action_03.webp",
+    "wave_action_04.webp",
+    "wave_action_05.webp",
+    "wave_action_06.webp",
+    "wave_action_07.webp",
+    "wave_action_08.webp",
+    "wave_action_09.webp",
+    "wave_action_10.webp",
+    "wave_action_11.webp"
+  ],
+  "tearTransition": [
+    "tear_transition_00.webp",
+    "tear_transition_01.webp",
+    "tear_transition_02.webp",
+    "tear_transition_03.webp",
+    "tear_transition_04.webp",
+    "tear_transition_05.webp",
+    "tear_transition_06.webp",
+    "tear_transition_07.webp",
+    "tear_transition_08.webp",
+    "tear_transition_09.webp",
+    "tear_transition_10.webp",
+    "tear_transition_11.webp"
+  ],
+  "chaseA": [
+    "chasea_00.webp",
+    "chasea_01.webp",
+    "chasea_02.webp",
+    "chasea_03.webp",
+    "chasea_04.webp",
+    "chasea_05.webp",
+    "chasea_06.webp",
+    "chasea_07.webp",
+    "chasea_08.webp",
+    "chasea_09.webp"
+  ],
+  "chaseB": [
+    "chaseb_00.webp",
+    "chaseb_01.webp",
+    "chaseb_02.webp",
+    "chaseb_03.webp",
+    "chaseb_04.webp",
+    "chaseb_05.webp",
+    "chaseb_06.webp",
+    "chaseb_07.webp",
+    "chaseb_08.webp",
+    "chaseb_09.webp"
+  ],
+  "chaseC": [
+    "chasec_00.webp",
+    "chasec_01.webp",
+    "chasec_02.webp",
+    "chasec_03.webp",
+    "chasec_04.webp",
+    "chasec_05.webp",
+    "chasec_06.webp",
+    "chasec_07.webp",
+    "chasec_08.webp",
+    "chasec_09.webp"
+  ],
+  "chaseD": [
+    "chased_00.webp",
+    "chased_01.webp",
+    "chased_02.webp",
+    "chased_03.webp",
+    "chased_04.webp",
+    "chased_05.webp",
+    "chased_06.webp",
+    "chased_07.webp",
+    "chased_08.webp",
+    "chased_09.webp"
+  ],
+  "chaseE": [
+    "chasee_00.webp",
+    "chasee_01.webp",
+    "chasee_02.webp",
+    "chasee_03.webp",
+    "chasee_04.webp",
+    "chasee_05.webp",
+    "chasee_06.webp",
+    "chasee_07.webp",
+    "chasee_08.webp",
+    "chasee_09.webp"
+  ],
+  "phase2ShiftA": [
+    "phase2shifta_00.webp",
+    "phase2shifta_01.webp",
+    "phase2shifta_02.webp",
+    "phase2shifta_03.webp",
+    "phase2shifta_04.webp",
+    "phase2shifta_05.webp",
+    "phase2shifta_06.webp",
+    "phase2shifta_07.webp"
+  ],
+  "phase2ShiftB": [
+    "phase2shiftb_00.webp",
+    "phase2shiftb_01.webp",
+    "phase2shiftb_02.webp",
+    "phase2shiftb_03.webp",
+    "phase2shiftb_04.webp",
+    "phase2shiftb_05.webp",
+    "phase2shiftb_06.webp",
+    "phase2shiftb_07.webp"
+  ],
+  "phase2ShiftC": [
+    "phase2shiftc_00.webp",
+    "phase2shiftc_01.webp",
+    "phase2shiftc_02.webp",
+    "phase2shiftc_03.webp",
+    "phase2shiftc_04.webp",
+    "phase2shiftc_05.webp",
+    "phase2shiftc_06.webp",
+    "phase2shiftc_07.webp"
+  ],
+  "phase2ShiftD": [
+    "phase2shiftd_00.webp",
+    "phase2shiftd_01.webp",
+    "phase2shiftd_02.webp",
+    "phase2shiftd_03.webp",
+    "phase2shiftd_04.webp",
+    "phase2shiftd_05.webp",
+    "phase2shiftd_06.webp",
+    "phase2shiftd_07.webp"
+  ],
+  "emeraldAbsorbA": [
+    "emeraldabsorba_00.webp",
+    "emeraldabsorba_01.webp",
+    "emeraldabsorba_02.webp",
+    "emeraldabsorba_03.webp",
+    "emeraldabsorba_04.webp",
+    "emeraldabsorba_05.webp",
+    "emeraldabsorba_06.webp",
+    "emeraldabsorba_07.webp"
+  ],
+  "emeraldAbsorbB": [
+    "emeraldabsorbb_00.webp",
+    "emeraldabsorbb_01.webp",
+    "emeraldabsorbb_02.webp",
+    "emeraldabsorbb_03.webp",
+    "emeraldabsorbb_04.webp",
+    "emeraldabsorbb_05.webp",
+    "emeraldabsorbb_06.webp",
+    "emeraldabsorbb_07.webp"
+  ],
+  "emeraldAbsorbC": [
+    "emeraldabsorbc_00.webp",
+    "emeraldabsorbc_01.webp",
+    "emeraldabsorbc_02.webp",
+    "emeraldabsorbc_03.webp",
+    "emeraldabsorbc_04.webp",
+    "emeraldabsorbc_05.webp",
+    "emeraldabsorbc_06.webp",
+    "emeraldabsorbc_07.webp"
+  ],
+  "whiteoutA": [
+    "whiteouta_00.webp",
+    "whiteouta_01.webp",
+    "whiteouta_02.webp",
+    "whiteouta_03.webp",
+    "whiteouta_04.webp",
+    "whiteouta_05.webp",
+    "whiteouta_06.webp",
+    "whiteouta_07.webp"
+  ],
+  "whiteoutB": [
+    "whiteoutb_00.webp",
+    "whiteoutb_01.webp",
+    "whiteoutb_02.webp",
+    "whiteoutb_03.webp",
+    "whiteoutb_04.webp",
+    "whiteoutb_05.webp",
+    "whiteoutb_06.webp",
+    "whiteoutb_07.webp"
+  ],
+  "arcAttackA": [
+    "arcattacka_00.webp",
+    "arcattacka_01.webp",
+    "arcattacka_02.webp",
+    "arcattacka_03.webp",
+    "arcattacka_04.webp",
+    "arcattacka_05.webp",
+    "arcattacka_06.webp",
+    "arcattacka_07.webp"
+  ],
+  "arcAttackB": [
+    "arcattackb_00.webp",
+    "arcattackb_01.webp",
+    "arcattackb_02.webp",
+    "arcattackb_03.webp",
+    "arcattackb_04.webp",
+    "arcattackb_05.webp",
+    "arcattackb_06.webp",
+    "arcattackb_07.webp"
+  ],
+  "arcKick": [
+    "arckick_00.webp",
+    "arckick_01.webp",
+    "arckick_02.webp",
+    "arckick_03.webp",
+    "arckick_04.webp",
+    "arckick_05.webp",
+    "arckick_06.webp",
+    "arckick_07.webp"
+  ],
+  "arcAttackC": [
+    "arcattackc_00.webp",
+    "arcattackc_01.webp",
+    "arcattackc_02.webp",
+    "arcattackc_03.webp",
+    "arcattackc_04.webp",
+    "arcattackc_05.webp",
+    "arcattackc_06.webp",
+    "arcattackc_07.webp",
+    "arcattackc_08.webp",
+    "arcattackc_09.webp"
+  ],
+  "arcAttackD": [
+    "arcattackd_00.webp",
+    "arcattackd_01.webp",
+    "arcattackd_02.webp",
+    "arcattackd_03.webp",
+    "arcattackd_04.webp",
+    "arcattackd_05.webp",
+    "arcattackd_06.webp",
+    "arcattackd_07.webp"
+  ],
+  "arcAttackE": [
+    "arcattacke_00.webp",
+    "arcattacke_01.webp",
+    "arcattacke_02.webp",
+    "arcattacke_03.webp",
+    "arcattacke_04.webp",
+    "arcattacke_05.webp",
+    "arcattacke_06.webp",
+    "arcattacke_07.webp"
+  ],
+  "arcAttackF": [
+    "arcattackf_00.webp",
+    "arcattackf_01.webp",
+    "arcattackf_02.webp",
+    "arcattackf_03.webp",
+    "arcattackf_04.webp",
+    "arcattackf_05.webp",
+    "arcattackf_06.webp",
+    "arcattackf_07.webp"
+  ],
+  "arcFinalA": [
+    "arcfinala_00.webp",
+    "arcfinala_01.webp",
+    "arcfinala_02.webp",
+    "arcfinala_03.webp"
+  ],
+  "arcFinalB": [
+    "arcfinalb_00.webp",
+    "arcfinalb_01.webp",
+    "arcfinalb_02.webp",
+    "arcfinalb_03.webp"
+  ],
+  "arcFinalC": [
+    "arcfinalc_00.webp",
+    "arcfinalc_01.webp",
+    "arcfinalc_02.webp",
+    "arcfinalc_03.webp",
+    "arcfinalc_04.webp",
+    "arcfinalc_05.webp"
+  ],
+  "lightningA": [
+    "lightninga_00.webp",
+    "lightninga_01.webp",
+    "lightninga_02.webp",
+    "lightninga_03.webp",
+    "lightninga_04.webp",
+    "lightninga_05.webp",
+    "lightninga_06.webp",
+    "lightninga_07.webp"
+  ],
+  "lightningB": [
+    "lightningb_00.webp",
+    "lightningb_01.webp",
+    "lightningb_02.webp",
+    "lightningb_03.webp",
+    "lightningb_04.webp",
+    "lightningb_05.webp",
+    "lightningb_06.webp",
+    "lightningb_07.webp"
+  ],
+  "lightningBigA": [
+    "lightningbiga_00.webp",
+    "lightningbiga_01.webp",
+    "lightningbiga_02.webp",
+    "lightningbiga_03.webp",
+    "lightningbiga_04.webp",
+    "lightningbiga_05.webp",
+    "lightningbiga_06.webp",
+    "lightningbiga_07.webp"
+  ],
+  "lightningBigB": [
+    "lightningbigb_00.webp",
+    "lightningbigb_01.webp",
+    "lightningbigb_02.webp",
+    "lightningbigb_03.webp",
+    "lightningbigb_04.webp",
+    "lightningbigb_05.webp",
+    "lightningbigb_06.webp",
+    "lightningbigb_07.webp"
+  ],
+  "slashOrangeH": [
+    "slashorangeh_00.webp",
+    "slashorangeh_01.webp",
+    "slashorangeh_02.webp",
+    "slashorangeh_03.webp",
+    "slashorangeh_04.webp",
+    "slashorangeh_05.webp"
+  ],
+  "slashBlueH": [
+    "slashblueh_00.webp",
+    "slashblueh_01.webp",
+    "slashblueh_02.webp",
+    "slashblueh_03.webp",
+    "slashblueh_04.webp",
+    "slashblueh_05.webp"
+  ],
+  "slashOrangeD": [
+    "slashoranged_00.webp",
+    "slashoranged_01.webp",
+    "slashoranged_02.webp",
+    "slashoranged_03.webp",
+    "slashoranged_04.webp",
+    "slashoranged_05.webp"
+  ],
+  "slashBlueD": [
+    "slashblued_00.webp",
+    "slashblued_01.webp",
+    "slashblued_02.webp",
+    "slashblued_03.webp",
+    "slashblued_04.webp",
+    "slashblued_05.webp"
+  ],
+  "slashOrangeR": [
+    "slashoranger_00.webp",
+    "slashoranger_01.webp",
+    "slashoranger_02.webp",
+    "slashoranger_03.webp",
+    "slashoranger_04.webp",
+    "slashoranger_05.webp"
+  ],
+  "slashBlueR": [
+    "slashbluer_00.webp",
+    "slashbluer_01.webp",
+    "slashbluer_02.webp",
+    "slashbluer_03.webp",
+    "slashbluer_04.webp",
+    "slashbluer_05.webp"
+  ],
+  "clawFxA": [
+    "clawfxa_00.webp",
+    "clawfxa_01.webp",
+    "clawfxa_02.webp",
+    "clawfxa_03.webp",
+    "clawfxa_04.webp",
+    "clawfxa_05.webp",
+    "clawfxa_06.webp",
+    "clawfxa_07.webp"
+  ],
+  "clawFxB": [
+    "clawfxb_00.webp",
+    "clawfxb_01.webp",
+    "clawfxb_02.webp",
+    "clawfxb_03.webp",
+    "clawfxb_04.webp",
+    "clawfxb_05.webp",
+    "clawfxb_06.webp",
+    "clawfxb_07.webp"
+  ],
+  "scytheA": [
+    "scythea_00.webp",
+    "scythea_01.webp",
+    "scythea_02.webp",
+    "scythea_03.webp",
+    "scythea_04.webp",
+    "scythea_05.webp"
+  ],
+  "scytheB": [
+    "scytheb_00.webp",
+    "scytheb_01.webp",
+    "scytheb_02.webp",
+    "scytheb_03.webp",
+    "scytheb_04.webp",
+    "scytheb_05.webp"
+  ],
+  "scytheC": [
+    "scythec_00.webp",
+    "scythec_01.webp",
+    "scythec_02.webp",
+    "scythec_03.webp",
+    "scythec_04.webp",
+    "scythec_05.webp"
+  ],
+  "scytheD": [
+    "scythed_00.webp",
+    "scythed_01.webp",
+    "scythed_02.webp",
+    "scythed_03.webp",
+    "scythed_04.webp",
+    "scythed_05.webp"
+  ],
+  "scytheImpact": [
+    "scytheimpact_00.webp",
+    "scytheimpact_01.webp",
+    "scytheimpact_02.webp",
+    "scytheimpact_03.webp",
+    "scytheimpact_04.webp",
+    "scytheimpact_05.webp"
+  ],
+  "meteorA": [
+    "meteora_00.webp",
+    "meteora_01.webp",
+    "meteora_02.webp",
+    "meteora_03.webp",
+    "meteora_04.webp",
+    "meteora_05.webp",
+    "meteora_06.webp",
+    "meteora_07.webp"
+  ],
+  "meteorB": [
+    "meteorb_00.webp",
+    "meteorb_01.webp",
+    "meteorb_02.webp",
+    "meteorb_03.webp",
+    "meteorb_04.webp",
+    "meteorb_05.webp",
+    "meteorb_06.webp",
+    "meteorb_07.webp"
+  ],
+  "meteorC": [
+    "meteorc_00.webp",
+    "meteorc_01.webp",
+    "meteorc_02.webp",
+    "meteorc_03.webp",
+    "meteorc_04.webp",
+    "meteorc_05.webp",
+    "meteorc_06.webp",
+    "meteorc_07.webp"
+  ],
+  "arcProjectile": [
+    "arcprojectile_00.webp",
+    "arcprojectile_01.webp",
+    "arcprojectile_02.webp",
+    "arcprojectile_03.webp",
+    "arcprojectile_04.webp",
+    "arcprojectile_05.webp",
+    "arcprojectile_06.webp",
+    "arcprojectile_07.webp"
+  ],
+  "arcImpact": [
+    "arcimpact_00.webp",
+    "arcimpact_01.webp",
+    "arcimpact_02.webp",
+    "arcimpact_03.webp",
+    "arcimpact_04.webp",
+    "arcimpact_05.webp",
+    "arcimpact_06.webp",
+    "arcimpact_07.webp",
+    "arcimpact_08.webp",
+    "arcimpact_09.webp",
+    "arcimpact_10.webp",
+    "arcimpact_11.webp"
+  ],
+  "arcScythe": [
+    "arcscythe_00.webp",
+    "arcscythe_01.webp",
+    "arcscythe_02.webp",
+    "arcscythe_03.webp",
+    "arcscythe_04.webp",
+    "arcscythe_05.webp",
+    "arcscythe_06.webp",
+    "arcscythe_07.webp"
+  ],
+  "emeraldSmall": [
+    "emeraldsmall_00.webp",
+    "emeraldsmall_01.webp",
+    "emeraldsmall_02.webp",
+    "emeraldsmall_03.webp",
+    "emeraldsmall_04.webp",
+    "emeraldsmall_05.webp",
+    "emeraldsmall_06.webp",
+    "emeraldsmall_07.webp"
+  ],
+  "emeraldMed": [
+    "emeraldmed_00.webp",
+    "emeraldmed_01.webp",
+    "emeraldmed_02.webp",
+    "emeraldmed_03.webp",
+    "emeraldmed_04.webp",
+    "emeraldmed_05.webp",
+    "emeraldmed_06.webp",
+    "emeraldmed_07.webp"
+  ],
+  "emeraldLarge": [
+    "emeraldlarge_00.webp",
+    "emeraldlarge_01.webp",
+    "emeraldlarge_02.webp",
+    "emeraldlarge_03.webp",
+    "emeraldlarge_04.webp",
+    "emeraldlarge_05.webp",
+    "emeraldlarge_06.webp",
+    "emeraldlarge_07.webp"
+  ],
+  "emeraldImpact": [
+    "emeraldimpact_00.webp",
+    "emeraldimpact_01.webp",
+    "emeraldimpact_02.webp",
+    "emeraldimpact_03.webp",
+    "emeraldimpact_04.webp",
+    "emeraldimpact_05.webp",
+    "emeraldimpact_06.webp",
+    "emeraldimpact_07.webp"
+  ],
+  "heartA": [
+    "hearta_00.webp",
+    "hearta_01.webp",
+    "hearta_02.webp",
+    "hearta_03.webp",
+    "hearta_04.webp",
+    "hearta_05.webp",
+    "hearta_06.webp",
+    "hearta_07.webp",
+    "hearta_08.webp",
+    "hearta_09.webp",
+    "hearta_10.webp",
+    "hearta_11.webp"
+  ],
+  "heartB": [
+    "heartb_00.webp",
+    "heartb_01.webp",
+    "heartb_02.webp",
+    "heartb_03.webp",
+    "heartb_04.webp",
+    "heartb_05.webp",
+    "heartb_06.webp",
+    "heartb_07.webp"
+  ],
+  "heartBreak": [
+    "heartbreak_00.webp",
+    "heartbreak_01.webp",
+    "heartbreak_02.webp",
+    "heartbreak_03.webp",
+    "heartbreak_04.webp",
+    "heartbreak_05.webp",
+    "heartbreak_06.webp",
+    "heartbreak_07.webp",
+    "heartbreak_08.webp",
+    "heartbreak_09.webp"
+  ],
+  "heartShards": [
+    "heartshards_00.webp",
+    "heartshards_01.webp",
+    "heartshards_02.webp",
+    "heartshards_03.webp",
+    "heartshards_04.webp",
+    "heartshards_05.webp",
+    "heartshards_06.webp",
+    "heartshards_07.webp"
+  ],
+  "eyeOrange": [
+    "eye_orange_00.webp",
+    "eye_orange_01.webp",
+    "eye_orange_02.webp",
+    "eye_orange_03.webp"
+  ],
+  "eyeBlue": [
+    "eye_blue_00.webp",
+    "eye_blue_01.webp",
+    "eye_blue_02.webp",
+    "eye_blue_03.webp"
+  ]
+}

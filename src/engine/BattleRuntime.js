@@ -1,5 +1,6 @@
 import { StateMachine } from "./StateMachine.js";
 import { BulletSystem } from "./BulletSystem.js";
+import { kaiserFrameUrl, kaiserSequence, preloadKaiserSequences } from "./KaiserBelialAssets.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -9,6 +10,7 @@ export class BattleRuntime {
     this.root = root;
     this.config = structuredClone(config);
     this.sound = services.sound ?? null;
+
     this.bridgeContext = this.config.bridgeContext ?? null;
     this.routeState = this.config.routeState && typeof this.config.routeState === "object"
       ? structuredClone(this.config.routeState)
@@ -49,9 +51,7 @@ export class BattleRuntime {
       for (const key of this.enemy.initialLiveForms ?? [this.gingaLiveForm]) this.gingaUnlocked.add(key);
       this.gingaUnlocked.add(this.gingaLiveForm);
       try {
-        const stored = Array.isArray(this.routeState?.sparkDolls)
-          ? this.routeState.sparkDolls
-          : JSON.parse(localStorage.getItem("ubr:ginga:sparkDolls") || "[]");
+        const stored = JSON.parse(localStorage.getItem("ubr:ginga:sparkDolls") || "[]");
         for (const key of stored) this.gingaUnlocked.add(key);
       } catch (_) {}
     }
@@ -135,7 +135,8 @@ export class BattleRuntime {
     // executes the selected Ultra form and the opponent-specific combat rules.
     this.originalBattle = String(this.enemy.encounterMode ?? "").startsWith("original_");
     this.originalAdapt = this.originalBattle ? 100 : 0;
-    this.originalFormKey = this.originalBattle ? (this.player.originalForms?.default ?? null) : null;
+    this.formSwitchBattle = this.originalBattle || this.enemy.encounterMode === "trial_kaiser_belial";
+    this.originalFormKey = this.formSwitchBattle ? (this.player.originalForms?.default ?? null) : null;
     this.originalLastFormKey = this.originalFormKey;
     this.originalFiveKingModules = this.enemy.modules ? structuredClone(this.enemy.modules) : null;
     this.originalTargetPart = this.originalFiveKingModules ? Object.keys(this.originalFiveKingModules)[0] : null;
@@ -153,6 +154,19 @@ export class BattleRuntime {
     this.belialHitBarkCooldownUntil = 0;
     this.belialClashProgress = 0;
     this.belialClashComplete = false;
+
+    // Kaiser Belial trial: sprite-driven three-form boss with playable phase transitions.
+    this.kaiserBattle = this.enemy.encounterMode === "trial_kaiser_belial";
+    this.kaiserVisualForm = "cloak";
+    this.kaiserTransitionPending = null;
+    this.kaiserTransitionSeen = new Set();
+    this.kaiserFinalePending = false;
+    this.kaiserFinaleComplete = false;
+    this.kaiserBarkCounters = {};
+    this.kaiserLastBark = null;
+    this.kaiserHitBarkCooldownUntil = 0;
+    this._kaiserSpriteTimer = null;
+    this._kaiserBarkTimer = null;
 
     this.turn = 0;
     this.actionCounts = {};
@@ -316,6 +330,29 @@ export class BattleRuntime {
         this.belialClashComplete = true;
         this.refs.stage?.classList.add("belial-clash-returned");
         this.sound?.play("heavy");
+      },
+      onKaiserSfx: (name, payload = {}) => {
+        if (!this.kaiserBattle) return;
+        this.sound?.playKaiserSfx?.(name, payload);
+      },
+      onKaiserGuard: (event = {}) => {
+        if (!this.kaiserBattle) return;
+        this.sound?.play("guard");
+        this.refs.stage?.classList.remove("kaiser-guard-flash");
+        void this.refs.stage?.offsetWidth;
+        this.refs.stage?.classList.add("kaiser-guard-flash");
+        setTimeout(() => this.refs.stage?.classList.remove("kaiser-guard-flash"), 300);
+      },
+      onKaiserCoreBreak: () => {
+        if (!this.kaiserBattle || this.kaiserFinaleComplete) return;
+        this.kaiserFinaleComplete = true;
+        this.enemy.hp = 0;
+        this.renderResources();
+        this.sound?.playKaiserSfx?.("coreBreak");
+        this.refs.stage?.classList.add("kaiser-core-broken");
+        // Keep the live canvas up for the actual impact/break frames instead of cutting to
+        // victory on the same tick that the dash touches the core.
+        setTimeout(() => this.bullets.stop(), 900);
       },
       onGrandLaserHit: (event = {}) => {
         if (this.enemy.encounterMode !== "original_grand_king") return;
@@ -700,7 +737,7 @@ export class BattleRuntime {
     if (this.gingaBattle) this.applyGingaLiveForm(this.gingaLiveForm, false);
     if (String(this.enemy.encounterMode ?? "").startsWith("nexus_")) this.applyNexusForm(this.nexusForm, false);
     if (this.cosmosBattle) this.applyCosmosForm(this.cosmosForm, false);
-    if (this.originalBattle) this.applyOriginalForm(this.originalFormKey, false);
+    if (this.formSwitchBattle) this.applyOriginalForm(this.originalFormKey, false);
     this.renderStatic();
     this.renderResources();
     this.setCommandsEnabled(false);
@@ -801,6 +838,8 @@ export class BattleRuntime {
       // Belial owns one continuous battle track. Galaxy flight, the phase-three field
       // and the final Deathcium clash keep the same playback position.
       await this.sound.playMusic("original_belial_battle", { volume: .17, fadeInMs: 1500, fadeOutMs: 0 });
+    } else if (mode === "trial_kaiser_belial") {
+      await this.sound.playMusic("original_belial_battle", { volume: .17, fadeInMs: 1500, fadeOutMs: 0 });
     }
   }
 
@@ -847,6 +886,8 @@ export class BattleRuntime {
     this._nexusFinalMashCleanup = null;
     cancelAnimationFrame(this.attackRAF);
     clearInterval(this.typingTimer);
+    clearInterval(this._kaiserSpriteTimer);
+    clearTimeout(this._kaiserBarkTimer);
 
     for (const handler of this._commandHandlers ?? []) {
       handler.button.removeEventListener("mouseenter", handler.onEnter);
@@ -904,6 +945,7 @@ export class BattleRuntime {
     );
     this.refs.enemySprite.dataset.enemy = this.enemy.id;
     this.refs.stage.dataset.enemy = this.enemy.id;
+    if (this.kaiserBattle) this.setupKaiserStageSprite();
     this.refs.stage.dataset.bossPhase = String(this.phaseIndex);
     this.refs.stage.dataset.mercyRoute = this.mercyRouteEnabled() ? "true" : "false";
     this.refs.stage.dataset.gateBattle = this.enemy.gate ? "true" : "false";
@@ -1507,7 +1549,7 @@ export class BattleRuntime {
   }
 
   applyOriginalForm(key, announce = true) {
-    if (!this.originalBattle) return false;
+    if (!this.formSwitchBattle) return false;
     const profile = this.originalFormProfile(key) ?? this.originalFormProfile(this.player.originalForms?.default);
     if (!profile) return false;
     this.originalLastFormKey = this.originalFormKey;
@@ -1600,10 +1642,13 @@ export class BattleRuntime {
   }
 
   originalSpeedBonus() {
-    if (!this.originalBattle) return 0;
-    if (this.enemy.encounterMode === "original_greeza") return this.phaseIndex >= 2 ? 34 : this.phaseIndex === 1 ? 20 : 8;
-    if (this.enemy.encounterMode === "original_belial") return this.phaseIndex >= 2 ? 24 : 12;
-    return 0;
+    if (!this.formSwitchBattle) return 0;
+    const formScale = this.originalFormProfile()?.speedScale ?? 1;
+    const formBonus = Math.round((formScale - 1) * 105);
+    if (this.enemy.encounterMode === "trial_kaiser_belial") return formBonus;
+    if (this.enemy.encounterMode === "original_greeza") return (this.phaseIndex >= 2 ? 34 : this.phaseIndex === 1 ? 20 : 8) + formBonus;
+    if (this.enemy.encounterMode === "original_belial") return (this.phaseIndex >= 2 ? 24 : 12) + formBonus;
+    return formBonus;
   }
 
   showOriginalGreezaMiss() {
@@ -1688,6 +1733,151 @@ export class BattleRuntime {
     }
 
     return Math.max(1, damage);
+  }
+
+
+  kaiserPickBark(kind="roundStart") {
+    const pool=this.enemy?.kaiserBarks?.[kind] ?? [];
+    if(!pool.length)return null;
+    const n=this.kaiserBarkCounters[kind]??0;
+    let line=pool[(n+this.turn+this.phaseIndex)%pool.length];
+    if(line===this.kaiserLastBark&&pool.length>1) line=pool[(n+this.turn+this.phaseIndex+1)%pool.length];
+    this.kaiserBarkCounters[kind]=n+1; this.kaiserLastBark=line; return line;
+  }
+
+  setupKaiserStageSprite() {
+    if(!this.kaiserBattle)return;
+    preloadKaiserSequences(["cloakIdle","cloakIdleAlt","noCloakIdle","noCloakIdleAggro","arcIdle","arcIdleAggro"]);
+    let img=this.refs.enemySprite?.querySelector?.(".kaiser-stage-sprite");
+    if(!img){
+      img=document.createElement("img");
+      img.className="kaiser-stage-sprite";
+      img.alt="恺撒贝利亚";
+      img.draggable=false;
+      this.refs.enemySprite?.appendChild(img);
+    }
+    this.kaiserStageImg=img;
+    this.refs.stage.dataset.kaiserForm=this.kaiserVisualForm;
+    this.sound?.preloadKaiserSfx?.();
+    this.playKaiserStageSequence(this.kaiserIdleSequence(), {fps:3.25,loop:true});
+    // Once the portrait is already visible, begin warming the rest of the sprite bank in
+    // the background so the first frame of a rare finisher never appears one beat late.
+    setTimeout(()=>{ if(this.kaiserBattle) preloadKaiserSequences(); },220);
+  }
+
+  kaiserIdleSequence(aggressive=false) {
+    if(this.kaiserVisualForm==="arc") return aggressive?"arcIdleAggro":"arcIdle";
+    if(this.kaiserVisualForm==="nocloak") return aggressive?"noCloakIdleAggro":"noCloakIdle";
+    return aggressive?"cloakIdleAlt":"cloakIdle";
+  }
+
+  kaiserStageSequenceFps(key, requested = 8) {
+    const raw = Math.max(1, Number(requested) || 8);
+    // The post-chase, no-cloak form needs visibly more life than the imperial cloak idle.
+    // Keep cloak deliberately slow, but let the exposed combat form breathe and shift faster.
+    if (/nocloak.*idle/i.test(key)) return Math.min(raw, 4.25);
+    if (/arc.*idle/i.test(key)) return Math.min(raw, 3.7);
+    if (/idle/i.test(key)) return Math.min(raw, 3.25);
+    if (/tear|shift|absorb|whiteout/i.test(key)) return Math.min(raw, 5.4);
+    return Math.min(raw, 6.8);
+  }
+
+  playKaiserStageSequence(key,{fps=8,loop=false,onDone=null}={}) {
+    if(!this.kaiserBattle)return;
+    this.setupKaiserStageImageOnly();
+    const frames=kaiserSequence(key);
+    if(!frames.length)return;
+    clearInterval(this._kaiserSpriteTimer);
+    let i=0;
+    const set=()=>{ if(this.kaiserStageImg) this.kaiserStageImg.src=kaiserFrameUrl(key,i); };
+    set();
+    const effectiveFps=this.kaiserStageSequenceFps(key,fps);
+    const interval=Math.max(90,Math.round(1000/effectiveFps));
+    this._kaiserSpriteTimer=setInterval(()=>{
+      i+=1;
+      if(i>=frames.length){
+        if(loop)i=0;
+        else{clearInterval(this._kaiserSpriteTimer);this._kaiserSpriteTimer=null;onDone?.();return;}
+      }
+      set();
+    },interval);
+  }
+
+  setupKaiserStageImageOnly(){
+    let img=this.refs.enemySprite?.querySelector?.(".kaiser-stage-sprite");
+    if(!img){img=document.createElement("img");img.className="kaiser-stage-sprite";img.alt="恺撒贝利亚";img.draggable=false;this.refs.enemySprite?.appendChild(img);}
+    this.kaiserStageImg=img;
+  }
+
+  setKaiserVisualForm(form,{aggressive=false}={}) {
+    if(!this.kaiserBattle)return;
+    this.kaiserVisualForm=form;
+    this.refs.stage.dataset.kaiserForm=form;
+    const subtitle=form==="cloak"?"恺撒贝利亚 · 披风":form==="nocloak"?"恺撒贝利亚 · 无披风":"电弧贝利亚 · 最终形态";
+    this.refs.enemyPhase.textContent=subtitle;
+    const idleFps=form==="nocloak"?4.15:form==="arc"?3.6:3.25;
+    this.playKaiserStageSequence(this.kaiserIdleSequence(aggressive),{fps:idleFps,loop:true});
+  }
+
+  showKaiserBark(line,duration=2100,poseKey=null) {
+    if(!this.kaiserBattle||!line)return;
+    // Two views of the same live line are kept in sync: the stage bubble is used while the
+    // command/menu view is visible, and a dedicated arena subtitle remains above the canvas
+    // once the dodge round starts. This fixes the old situation where the line disappeared
+    // exactly when the enemy stage was collapsed for gameplay.
+    let bark=this.refs.stage?.querySelector?.(".kaiser-bark");
+    if(!bark){bark=document.createElement("div");bark.className="kaiser-bark";this.refs.stage?.appendChild(bark);}
+    let combatBark=this.refs.battleFrame?.querySelector?.(".kaiser-combat-bark");
+    if(!combatBark){combatBark=document.createElement("div");combatBark.className="kaiser-combat-bark";this.refs.battleFrame?.appendChild(combatBark);}
+    clearInterval(this._kaiserBarkTyping);
+    clearTimeout(this._kaiserBarkTimer);
+    bark.textContent="";
+    combatBark.textContent="";
+    bark.classList.add("show");
+    combatBark.classList.add("show");
+    const chars=[...String(line)], step=34;
+    let i=0;
+    const typeOne=()=>{
+      if(i>=chars.length){clearInterval(this._kaiserBarkTyping);this._kaiserBarkTyping=null;return;}
+      const ch=chars[i];
+      bark.textContent+=ch;
+      combatBark.textContent+=ch;
+      this.sound?.playKaiserType?.(ch,i);
+      i+=1;
+    };
+    typeOne();
+    this._kaiserBarkTyping=setInterval(typeOne,step);
+    if(poseKey) this.playKaiserStageSequence(poseKey,{fps:5.6,loop:false,onDone:()=>this.playKaiserStageSequence(this.kaiserIdleSequence(false),{fps:this.kaiserVisualForm==="nocloak"?4.15:3.25,loop:true})});
+    const visibleFor=Math.max(2600,duration,chars.length*step+1200);
+    this._kaiserBarkTimer=setTimeout(()=>{
+      clearInterval(this._kaiserBarkTyping);this._kaiserBarkTyping=null;
+      bark?.classList.remove("show");combatBark?.classList.remove("show");
+    },visibleFor);
+  }
+
+  resetKaiserArenaPresentation({dialogue=false}={}) {
+    if(!this.kaiserBattle)return;
+    this.refs.stage?.classList.remove("kaiser-arena-active","kaiser-chase-field","kaiser-half-field","kaiser-final-corridor");
+    const frame=this.refs.battleFrame,canvas=this.refs.canvas;
+    for(const el of [frame,canvas]){el?.style.removeProperty("width");el?.style.removeProperty("height");el?.style.removeProperty("min-height");el?.style.removeProperty("max-width");}
+    if(dialogue)this.setFrameMode("dialogue");
+    void frame?.offsetWidth;
+  }
+
+  flashKaiserStageWhiteout(duration=900) {
+    if(!this.kaiserBattle||!this.refs.stage)return;
+    let fx=this.refs.stage.querySelector(".kaiser-stage-whiteout");
+    if(!fx){
+      fx=document.createElement("div");
+      fx.className="kaiser-stage-whiteout";
+      this.refs.stage.appendChild(fx);
+    }
+    fx.style.setProperty("--kaiser-whiteout-ms",`${Math.max(420,duration)}ms`);
+    fx.classList.remove("show");
+    void fx.offsetWidth;
+    fx.classList.add("show");
+    clearTimeout(this._kaiserStageWhiteoutTimer);
+    this._kaiserStageWhiteoutTimer=setTimeout(()=>fx?.classList.remove("show"),Math.max(420,duration)+90);
   }
 
 
@@ -2598,7 +2788,9 @@ export class BattleRuntime {
 
     return new Promise((resolveTyping) => {
       this.typingTimer = setInterval(() => {
-        this.refs.dialogueText.textContent += chars[i] ?? "";
+        const ch = chars[i] ?? "";
+        this.refs.dialogueText.textContent += ch;
+        this.sound?.playDialogueTick?.(ch, i, this.kaiserBattle);
         i += 1;
 
         if (i >= chars.length) {
@@ -2793,8 +2985,8 @@ export class BattleRuntime {
       const cosmosObjectiveHelp = this.getCosmosObjectiveHelp();
       this.refs.microHelp.textContent = cosmosObjectiveHelp
         ? cosmosObjectiveHelp
-        : this.originalBattle
-        ? `ORIGINAL · ${this.player.form} · ${originalControlHelp} · 【行动】切换形态`
+        : this.formSwitchBattle
+        ? `${this.kaiserBattle ? "TRIAL" : "ORIGINAL"} · ${this.player.form} · 【行动】切换形态`
         : this.lugielFinaleActive()
         ? "FINAL PHASE · 【呼唤】回应伙伴 · 【LIVE】不再换形态，而是唤回一路走来的光"
         : this.gingaBattle && this.gingaLiveForced
@@ -2849,7 +3041,7 @@ export class BattleRuntime {
   }
 
   getChoiceOptions(kind) {
-    if (kind === "SKILL") return this.originalBattle
+    if (kind === "SKILL") return this.formSwitchBattle
       ? this.getOriginalSkills()
       : this.cosmosBattle
       ? this.getCosmosFormSkills()
@@ -2858,7 +3050,7 @@ export class BattleRuntime {
       : this.lugielFinaleActive() ? this.getLugielFinaleSkills()
       : ["nexus_mephisto_one_himeya", "nexus_mephisto_zwei", "nexus_dark_zagi_bond"].includes(this.enemy.encounterMode) ? this.getNexusFormSkills()
       : (this.player.skills ?? []);
-    if (kind === "ACT") return this.originalBattle
+    if (kind === "ACT") return this.formSwitchBattle
       ? this.getOriginalActions()
       : this.cosmosBattle
       ? this.getCosmosFormActions()
@@ -2887,7 +3079,7 @@ export class BattleRuntime {
     this.inputLocked = false;
 
     const titleMap = { SKILL: "技能", ACT: "行动", ITEM: this.gingaBattle ? "ULTRA LIVE" : "道具" };
-    if (this.originalBattle) {
+    if (this.formSwitchBattle) {
       if (kind === "SKILL") titleMap.SKILL = `${this.player.form} / 光技`;
       if (kind === "ACT") titleMap.ACT = this.enemy.encounterMode === "original_five_king" ? "形态 / 部位" : "形态";
     }
@@ -3164,6 +3356,10 @@ export class BattleRuntime {
       const heavy=grade === "PERFECT" || damage >= Math.max(28, this.player.attack*.9);
       const line=this.belialPickBark(heavy?"heavyHit":"attacked");
       this.showBelialBark(line,1050,heavy?"belial-rage":"belial-taunt");
+    }
+    if (this.kaiserBattle && this.enemy.hp > 0) {
+      const line=this.kaiserPickBark("attacked");
+      this.showKaiserBark(line,980,null);
     }
 
     if (grade === "PERFECT" && this.enemy.perfectHitFlavor?.length && this.enemy.hp > 0) {
@@ -3840,6 +4036,11 @@ export class BattleRuntime {
       this.playOriginalBossPose("belial-laugh",850);
       await this.say(`* 贝利亚：“${line}”`, 420);
     }
+    if (this.kaiserBattle) {
+      const line=this.kaiserPickBark("item");
+      this.showKaiserBark(line,980,null);
+      await sleep(260);
+    }
     await this.enemyResponse();
   }
 
@@ -3903,6 +4104,16 @@ export class BattleRuntime {
         this.enemy.hp = Math.max(this.enemy.hp, gateHp);
       }
     }
+    if (this.kaiserBattle) {
+      const nextPhase=this.enemy.phases?.[this.phaseIndex+1];
+      if(nextPhase){
+        const gateHp=Math.max(1,Math.floor(this.enemy.maxHp*nextPhase.threshold));
+        this.enemy.hp=Math.max(this.enemy.hp,gateHp);
+      } else if(!this.kaiserFinaleComplete && this.enemy.hp<=0) {
+        // HP zero starts the playable mineral corridor; victory only occurs after the heart is rammed.
+        this.enemy.hp=1; this.kaiserFinalePending=true;
+      }
+    }
     const actualDamage = Math.max(0, beforeHp - this.enemy.hp);
     if (actualDamage > 0 && this.mercyRouteEnabled()) {
       this.adjustMercy(-(this.enemy.mercy?.damagePenalty ?? 0));
@@ -3947,7 +4158,7 @@ export class BattleRuntime {
     }
 
     let reduction = this.flags.barrier ? .5 : 1;
-    if (this.originalBattle) reduction *= this.originalFormProfile()?.incomingMultiplier ?? 1;
+    if (this.formSwitchBattle) reduction *= this.originalFormProfile()?.incomingMultiplier ?? 1;
     if (this.flags.lightShield) reduction *= .78;
     if (this.flags.cosmosGuard) reduction *= .70;
     if (this.tigaGatanothorFinaleActive()) reduction *= .48;
@@ -3959,6 +4170,10 @@ export class BattleRuntime {
     if (this.enemy.encounterMode === "original_belial" && this.player.hp > 0 && performance.now() >= (this.belialHitBarkCooldownUntil ?? 0)) {
       this.belialHitBarkCooldownUntil=performance.now()+1450;
       this.showBelialBark(this.belialPickBark("playerHit"),1180,(this.turn%2)?"belial-laugh":"belial-point");
+    }
+    if (this.kaiserBattle && this.player.hp > 0 && performance.now() >= (this.kaiserHitBarkCooldownUntil ?? 0)) {
+      this.kaiserHitBarkCooldownUntil=performance.now()+1750;
+      this.showKaiserBark(this.kaiserPickBark("playerHit"),900,null);
     }
     if (this.originalBattle) this.gainOriginalAdapt(Math.max(1, finalDamage * .72), "receive");
     if (this.player.hp <= 0 && this.lugielFinaleRevivalEligible() && !this.lugielFinaleReviving) {
@@ -5871,6 +6086,13 @@ export class BattleRuntime {
       this.currentPhase = this.enemy.phases[this.phaseIndex];
       changed = true;
 
+      if (this.kaiserBattle) {
+        this.kaiserTransitionPending=this.phaseIndex;
+        // The form itself changes only after the playable transition attack has been survived.
+        this.refs.stage.classList.add("kaiser-phase-warning");
+        setTimeout(()=>this.refs.stage?.classList.remove("kaiser-phase-warning"),620);
+      }
+
       if (this.enemy.encounterMode === "leo_pressure" && this.phaseIndex === 1) {
         await this.leoPressureShrinkCinematic();
         continue;
@@ -5919,6 +6141,13 @@ export class BattleRuntime {
         await this.originalPhaseCinematic();
       }
 
+      if (this.kaiserBattle) {
+        // Do not announce the next body/form before the playable transition has actually
+        // happened. The threshold only arms the next long enemy window.
+        this.refs.stage.dataset.bossPhase = String(this.phaseIndex);
+        continue;
+      }
+
       if (this.enemy.encounterMode === "ginga_dark_brothers" && this.phaseIndex === 1 && !this.darkHijackedCommand) this.hijackOneCommand();
       if (this.enemy.encounterMode === "ginga_lugiel" && this.phaseIndex === 2) {
         for (const command of ["SKILL", "ACT", "ITEM"]) this.frozenCommands.add(command);
@@ -5958,6 +6187,17 @@ export class BattleRuntime {
     const sprite = this.refs.enemySprite;
     sprite.classList.add("roar");
     setTimeout(() => sprite.classList.remove("roar"), 720);
+
+    if (this.kaiserBattle) {
+      const pending=Number(this.kaiserTransitionPending??0);
+      const pendingUnseen=(pending===1||pending===2)&&!this.kaiserTransitionSeen.has(pending);
+      const kind=this.kaiserFinalePending?"finale":pendingUnseen?(pending===1?"phase2":"phase3"):(this.phaseIndex===2&&this.enemy.hp/this.enemy.maxHp<.12?"phase3":"roundStart");
+      // Kaiser speaks on the live stage. The typewriter bubble continues naturally into the
+      // attack wind-up instead of vanishing in under a second.
+      this.showKaiserBark(this.kaiserPickBark(kind),2100,null);
+      await sleep(pendingUnseen?760:520);
+      return this.enemyAttack();
+    }
 
     if (this.enemy.encounterMode === "original_belial") {
       const response=this.belialPickBark(this.phaseIndex>=2&&this.enemy.hp/this.enemy.maxHp<.18?"lowHp":"roundStart");
@@ -6009,6 +6249,16 @@ export class BattleRuntime {
         patternSet = pending === 1 ? "original_belial_galaxy" : "original_belial_abyss";
       }
     }
+    let kaiserSpecial=null,kaiserSpecialPhase=null;
+    if(this.kaiserBattle){
+      const pending=Number(this.kaiserTransitionPending??0);
+      if(this.kaiserFinalePending && !this.kaiserFinaleComplete){
+        kaiserSpecial="final"; patternSet="trial_kaiser_final";
+      } else if((pending===1||pending===2)&&!this.kaiserTransitionSeen.has(pending)){
+        kaiserSpecialPhase=pending; kaiserSpecial=pending===1?"chase":"half";
+        patternSet=pending===1?"trial_kaiser_chase":"trial_kaiser_half";
+      } else patternSet="trial_kaiser_belial";
+    }
     if (this.refs.microHelp) {
       this.refs.microHelp.textContent = defenseMode === "memory"
         ? "意识连接：WASD / 方向键移动 · 碰到记忆之光后把它带回中央的美铃光点 · 受击会把携带的光震落"
@@ -6038,6 +6288,18 @@ export class BattleRuntime {
           ? "奈克瑟斯：WASD / 方向键移动 · Z / Enter 切断特殊目标"
         : this.enemy.encounterMode === "original_zetton" && this.phaseIndex === 0
           ? (defenseMode === "guard" ? "杰顿：WASD / 方向键转动防御方向" : "杰顿：WASD / 方向键自由移动 · 瞬移路线出现后立刻离开")
+        : this.kaiserBattle
+          ? (kaiserSpecial === "chase"
+            ? "星海追猎：WASD / 方向键飞行 · Z / Enter / Space 射击陨石 · 蓝斩停下、橙斩持续移动"
+            : kaiserSpecial === "half"
+              ? "半屏处刑：WASD移动 · 连斩看预警 · 踩击抵达边缘前换位 · 死亡之镰临身按 Z"
+              : kaiserSpecial === "final"
+                ? "最终长廊：向右推进 · 长按 Z 进入猛冲，无敌并撞碎艾美拉鲁矿石 · 在尽头撞穿核心"
+                : this.phaseIndex===0
+                  ? "披风皇帝：WASD移动 · 看雷击落点与连续波形点弹 · 橙斩要动、蓝斩要停"
+                  : this.phaseIndex===1
+                    ? "无披风：WASD移动 · 橙蓝格斗仪直接扫击 · 死亡之镰按 Z 格挡 · 波形点弹会连续成串"
+                    : "电弧贝利亚：WASD移动 · 弹幕雨与绿色闪电会交叉 · 巨型踩击落地后还有溅射")
         : this.enemy.encounterMode === "original_belial"
           ? (belialSpecial === "galaxy"
             ? "银河追逐：WASD / 方向键飞行 · Z / Enter / Space 射击流星与陨石 · 把追踪光球引回贝利亚"
@@ -6091,6 +6353,12 @@ export class BattleRuntime {
     if (this.enemy.encounterMode === "original_belial") this.refs.stage.classList.add("belial-arena-active");
     if (belialSpecial === "galaxy") this.refs.stage.classList.add("belial-galaxy-flight");
     if (belialSpecial === "abyss") this.refs.stage.classList.add("belial-abyss-field");
+    if(this.kaiserBattle){
+      this.refs.stage.classList.add("kaiser-arena-active");
+      if(kaiserSpecial==="chase")this.refs.stage.classList.add("kaiser-chase-field");
+      if(kaiserSpecial==="half")this.refs.stage.classList.add("kaiser-half-field");
+      if(kaiserSpecial==="final")this.refs.stage.classList.add("kaiser-final-corridor");
+    }
 
     this.refs.enemySprite.classList.add("charged");
     await sleep(150);
@@ -6127,9 +6395,17 @@ export class BattleRuntime {
     }
     if (belialSpecial === "galaxy") attackDuration = 19000;
     if (belialSpecial === "abyss") attackDuration = 22000;
+    if(this.kaiserBattle){
+      const variant=(Math.max(1,this.turn)-1)%6;
+      const normalDurations=[[12400,15500,13600,12000,13200,13200],[14600,14800,15200,15200,14800,15000],[16400,16800,16000,17000,16600,17000]];
+      attackDuration=normalDurations[Math.min(2,this.phaseIndex)][variant];
+      if(kaiserSpecial==="chase")attackDuration=41000;
+      if(kaiserSpecial==="half")attackDuration=45000;
+      if(kaiserSpecial==="final")attackDuration=98000;
+    }
     if (defenseMode === "freeze") this.prepareLugielFreezeTargets();
 
-    await sleep(this.enemy.encounterMode === "original_belial" ? 90 : 250);
+    await sleep(this.enemy.encounterMode === "original_belial" || this.kaiserBattle ? 90 : 250);
     this.refs.enemySprite.classList.remove("charged");
 
     let result;
@@ -6141,7 +6417,7 @@ export class BattleRuntime {
       rage: Math.min(1, this.enemy.rage * .22),
       telegraphScale,
       guardBonus,
-      speedBonus: speedBonus + (this.lugielFinaleSupportActive && this.phaseIndex >= 2 ? 28 : 0) + (this.originalBattle ? this.originalSpeedBonus() : 0),
+      speedBonus: speedBonus + (this.lugielFinaleSupportActive && this.phaseIndex >= 2 ? 28 : 0) + (this.formSwitchBattle ? this.originalSpeedBonus() : 0),
       jumpBonus: this.flags.jumpBoost ? 58 : 0,
       platformAssist: this.flags.platformAssist,
       platformFloorsTarget: this.config.arena.floorsPerRound ?? 9,
@@ -6232,11 +6508,33 @@ export class BattleRuntime {
       originalTargetPart: this.enemy.encounterMode === "original_five_king" ? this.originalTargetPart : null,
       originalZettonBeamStored: this.enemy.encounterMode === "original_zetton" ? this.originalZettonBeamStored : false,
       originalTurn: this.turn,
-      belialSpecial
+      belialSpecial,
+      kaiserBattle: this.kaiserBattle,
+      kaiserPhase: this.phaseIndex,
+      kaiserTurn: this.turn,
+      kaiserSpecial,
+      kaiserVisualForm: this.kaiserVisualForm
       });
     } finally {
       if (this.enemy.encounterMode === "original_belial") this.resetBelialArenaPresentation({ dialogue:true });
       else this.refs.stage.classList.remove("belial-galaxy-flight", "belial-abyss-field");
+      if(this.kaiserBattle)this.resetKaiserArenaPresentation({dialogue:true});
+    }
+    if(kaiserSpecialPhase!=null){
+      this.kaiserTransitionSeen.add(kaiserSpecialPhase);
+      if(Number(this.kaiserTransitionPending??0)===kaiserSpecialPhase)this.kaiserTransitionPending=null;
+      // Keep the last arena whiteout alive across the hand-off. The next form is swapped while
+      // the stage is still washed out, then revealed as the white fades.
+      this.flashKaiserStageWhiteout(kaiserSpecialPhase===2?1180:920);
+      if(kaiserSpecialPhase===1)this.setKaiserVisualForm("nocloak",{aggressive:false});
+      if(kaiserSpecialPhase===2)this.setKaiserVisualForm("arc",{aggressive:false});
+      const phase=this.enemy.phases?.[kaiserSpecialPhase];
+      if(this.refs.phaseBanner && this.refs.phaseTitle && phase){
+        this.refs.phaseTitle.textContent=phase.title;
+        if(this.refs.phaseKicker)this.refs.phaseKicker.textContent=kaiserSpecialPhase===2?"FINAL PHASE":"PHASE SHIFT";
+        this.refs.phaseBanner.hidden=false;this.refs.phaseBanner.classList.remove("show");void this.refs.phaseBanner.offsetWidth;this.refs.phaseBanner.classList.add("show");
+        await sleep(620);this.refs.phaseBanner.classList.remove("show");this.refs.phaseBanner.hidden=true;
+      }
     }
     if (belialSpecialPhase != null) {
       this.belialTransitionSeen.add(belialSpecialPhase);
@@ -6244,6 +6542,7 @@ export class BattleRuntime {
     }
 
     if (this.player.hp <= 0) return this.defeat();
+    if(this.kaiserBattle && kaiserSpecial==="final" && this.kaiserFinaleComplete) return this.victory();
     if (this.enemy.hp <= 0) return this.victory();
     if (["nexus", "stasis"].includes(defenseMode)) await this.maybeAdvancePhase();
 
@@ -6476,7 +6775,10 @@ export class BattleRuntime {
     this.state.set("TURN_END");
     if(this.enemy.encounterMode === "original_belial") this.resetBelialArenaPresentation({dialogue:true});
     else this.setFrameMode("dialogue");
-    await sleep(this.enemy.encounterMode === "original_belial" ? 40 : 210);
+    if(this.kaiserBattle && kaiserSpecial==null && !this.kaiserFinalePending){
+      this.showKaiserBark(this.kaiserPickBark((result?.hits??0)===0?"roundClean":"roundEnd"),2200,null);
+    }
+    await sleep(this.enemy.encounterMode === "original_belial" ? 40 : this.kaiserBattle ? 120 : 210);
 
     if (defenseMode === "platform" && this.enemy.requiresExposure && this.enemyExposed) {
       return this.enterPlayerMenu(false);
@@ -7200,7 +7502,7 @@ export class BattleRuntime {
     const detail = {
       type: "BATTLE_FINISHED",
       protocolVersion: this.bridgeContext?.protocolVersion ?? "1.0.0",
-      runtimeVersion: this.bridgeContext?.runtimeVersion ?? "2.8.0-light-memory-terminal",
+      runtimeVersion: this.bridgeContext?.runtimeVersion ?? "2.8.6-light-memory-terminal",
       resultId: this.bridgeContext?.requestId
         ? `${this.bridgeContext.requestId}:${result}`
         : `showcase:${Date.now()}:${result}`,

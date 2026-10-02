@@ -1195,12 +1195,6 @@ canvas {
 .result-card { width: min(520px, 100%); padding: 34px; border: 1px solid rgba(255,255,255,.17); background: rgba(7,11,16,.91); box-shadow: 0 24px 70px rgba(0,0,0,.42); text-align: center; }
 .result-card h2 { margin: 7px 0 10px; font-size: clamp(34px, 5vw, 56px); letter-spacing: .12em; }
 .result-card p { color: rgba(235,241,246,.52); font-size: 13px; }
-.result-transfer { margin-top: 20px; padding: 17px; border: 1px solid rgba(126,233,255,.3); background: rgba(20,39,52,.68); text-align: left; }
-.result-transfer strong { display: block; color: #9ceeff; letter-spacing: .08em; }
-.result-transfer p { margin: 6px 0 12px; line-height: 1.6; }
-.result-transfer textarea { width: 100%; min-height: 128px; resize: vertical; padding: 11px; border: 1px solid rgba(255,255,255,.14); background: #03070c; color: #dffaff; font: 11px/1.55 ui-monospace,monospace; }
-.result-transfer button { margin-top: 10px; width: 100%; }
-.result-transfer span { display: block; min-height: 1.4em; margin-top: 8px; color: #91dfc4; font-size: 11px; text-align: center; }
 .result-actions { display: flex; justify-content: center; gap: 10px; margin-top: 24px; }
 .showcase-primary,
 .showcase-secondary { border: 1px solid rgba(255,255,255,.24); padding: 10px 16px; cursor: pointer; color: #fff; font: inherit; }
@@ -5343,4 +5337,316 @@ canvas {
    the portrait while the live arena class is present; cleanup restores him immediately. */
 #app[data-battle-state="ENEMY_ATTACK"] #stage[data-enemy="original-belial"]:not(.belial-arena-active) .enemy-stage{opacity:1!important;transform:none!important;z-index:5!important}
 #app[data-battle-state="ENEMY_ATTACK"] #stage[data-enemy="original-belial"].belial-arena-active .enemy-stage{opacity:0!important}
+
+/* v2.8.0 — Kaiser Belial trial: sprite-driven boss presentation. */
+#enemy-sprite[data-enemy="trial-kaiser-belial"]{
+  width:360px;
+  height:258px;
+  filter:drop-shadow(0 18px 22px rgba(0,0,0,.58));
+}
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .enemy-core,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .enemy-aura,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .enemy-shadow,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-body,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-head,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-arm,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-horn,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-chest,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-eye,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiju-shell,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .original-part,
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .original-weapon{
+  display:none!important;
+}
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{
+  position:absolute;
+  left:50%;
+  bottom:-4px;
+  width:auto;
+  height:260px;
+  max-width:390px;
+  object-fit:contain;
+  transform:translateX(-50%);
+  transform-origin:50% 90%;
+  image-rendering:pixelated;
+  filter:drop-shadow(7px 11px 0 rgba(0,0,0,.38)) drop-shadow(0 0 12px rgba(180,13,35,.16));
+  user-select:none;
+  pointer-events:none;
+}
+#stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:252px}
+#stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:270px;filter:drop-shadow(7px 11px 0 rgba(0,0,0,.42)) drop-shadow(0 0 18px rgba(255,49,61,.24))}
+#stage[data-enemy="trial-kaiser-belial"] .enemy-stage{
+  min-height:278px;
+  transition:opacity .12s linear,transform .18s ease;
+}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active .enemy-stage{
+  opacity:0;
+  transform:translateY(-10px) scale(.98);
+  pointer-events:none;
+}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark{
+  position:absolute;
+  z-index:18;
+  left:calc(50% + 132px);
+  top:102px;
+  width:min(310px,34vw);
+  padding:10px 13px;
+  border:2px solid rgba(255,255,255,.92);
+  background:#050507;
+  color:#f7f7f7;
+  font-size:14px;
+  line-height:1.45;
+  letter-spacing:.02em;
+  opacity:0;
+  transform:translate(8px,4px);
+  pointer-events:none;
+  box-shadow:8px 8px 0 rgba(0,0,0,.46),inset 0 0 0 1px rgba(166,18,43,.32);
+}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark::before{
+  content:"";
+  position:absolute;
+  left:-12px;
+  top:22px;
+  width:18px;
+  height:18px;
+  background:#050507;
+  border-left:2px solid #fff;
+  border-bottom:2px solid #fff;
+  transform:rotate(45deg);
+}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark.show{animation:kaiser-bark-in .92s steps(6,end) both}
+@keyframes kaiser-bark-in{0%{opacity:0;transform:translate(8px,4px)}10%,82%{opacity:1;transform:translate(0)}100%{opacity:0;transform:translate(-3px,-2px)}}
+
+/* Standard trial arena: large enough for the sprite actor, still a recognisable battle box. */
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active:not(.kaiser-chase-field):not(.kaiser-half-field):not(.kaiser-final-corridor) .battle-frame[data-mode="arena"]{
+  width:min(900px,94vw);
+  height:390px;
+  max-width:none;
+  border-color:rgba(219,37,58,.82);
+  box-shadow:0 0 0 1px rgba(0,0,0,.9),0 0 32px rgba(128,0,20,.22),inset 0 0 30px rgba(100,0,16,.08);
+}
+
+/* Phase-I -> II: the box is gone; the canvas becomes the moving starfield itself. */
+#stage[data-enemy="trial-kaiser-belial"].kaiser-chase-field .battle-frame[data-mode="arena"]{
+  width:min(1180px,98vw);
+  height:560px;
+  max-width:none;
+  border-color:transparent!important;
+  background:#020104;
+  box-shadow:none!important;
+  overflow:hidden;
+}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-chase-field .battle-frame[data-mode="arena"]::before,
+#stage[data-enemy="trial-kaiser-belial"].kaiser-chase-field .battle-frame[data-mode="arena"]::after{display:none!important}
+
+/* Phase-II -> III: playable screen has been clawed down to a half-width kill zone. */
+#stage[data-enemy="trial-kaiser-belial"].kaiser-half-field .battle-frame[data-mode="arena"]{
+  width:min(900px,94vw);
+  height:420px;
+  max-width:none;
+  border-color:rgba(228,39,57,.9);
+  box-shadow:0 0 26px rgba(148,0,23,.3),inset 0 0 32px rgba(128,0,17,.13);
+}
+
+/* Final execution is a procedural horizontal corridor, not an illustrated background. */
+#stage[data-enemy="trial-kaiser-belial"].kaiser-final-corridor .battle-frame[data-mode="arena"]{
+  width:min(1200px,98vw);
+  height:470px;
+  max-width:none;
+  border-color:rgba(94,255,154,.42);
+  background:#010604;
+  box-shadow:0 0 30px rgba(45,255,119,.12),inset 0 0 36px rgba(29,117,62,.1);
+}
+#stage[data-enemy="trial-kaiser-belial"] #battle-canvas{image-rendering:pixelated}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-final-corridor #battle-canvas{cursor:crosshair}
+
+@media (max-width:780px){
+  #enemy-sprite[data-enemy="trial-kaiser-belial"]{width:284px;height:220px}
+  #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:218px;max-width:300px}
+  #stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:212px}
+  #stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:226px}
+  #stage[data-enemy="trial-kaiser-belial"] .enemy-stage{min-height:232px}
+  #stage[data-enemy="trial-kaiser-belial"] .kaiser-bark{left:50%;top:74px;width:min(82vw,320px);transform:translateX(-50%)}
+  #stage[data-enemy="trial-kaiser-belial"] .kaiser-bark::before{display:none}
+  #stage[data-enemy="trial-kaiser-belial"].kaiser-chase-field .battle-frame[data-mode="arena"]{height:72vh;min-height:440px}
+  #stage[data-enemy="trial-kaiser-belial"].kaiser-half-field .battle-frame[data-mode="arena"]{width:94vw;height:52vh;min-height:330px}
+  #stage[data-enemy="trial-kaiser-belial"].kaiser-final-corridor .battle-frame[data-mode="arena"]{height:54vh;min-height:350px}
+}
+
+/* v2.8.1 — Kaiser Belial visual integration + calm sprite timing. */
+#stage[data-enemy="trial-kaiser-belial"]{
+  background:
+    radial-gradient(ellipse at 50% 25%,rgba(118,5,27,.22) 0%,rgba(52,2,14,.09) 31%,transparent 58%),
+    linear-gradient(180deg,#13070c 0%,#09090e 48%,#030509 100%);
+}
+#stage[data-enemy="trial-kaiser-belial"]::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(90deg,rgba(0,0,0,.38),transparent 18%,transparent 82%,rgba(0,0,0,.38));
+  opacity:.72;
+}
+/* Kaiser grid children: keep decorative layers out of document flow. */
+#stage[data-enemy="trial-kaiser-belial"] > .enemy-hud,
+#stage[data-enemy="trial-kaiser-belial"] > .enemy-stage,
+#stage[data-enemy="trial-kaiser-belial"] > .battle-frame,
+#stage[data-enemy="trial-kaiser-belial"] > .player-hud,
+#stage[data-enemy="trial-kaiser-belial"] > .command-menu{position:relative;z-index:1}
+#enemy-sprite[data-enemy="trial-kaiser-belial"]{width:450px;height:338px;filter:none}
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{
+  height:330px;max-width:450px;bottom:-7px;opacity:.97;
+  filter:brightness(.88) saturate(.88) contrast(1.08) drop-shadow(0 13px 10px rgba(0,0,0,.58)) drop-shadow(0 0 10px rgba(137,0,28,.24));
+  animation:kaiser-stage-breathe 3.45s ease-in-out infinite;
+  will-change:transform;
+}
+#stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:318px;max-width:420px}
+#stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:342px;max-width:460px;filter:brightness(.86) saturate(.9) contrast(1.1) drop-shadow(0 14px 10px rgba(0,0,0,.62)) drop-shadow(0 0 13px rgba(255,32,58,.28))}
+#stage[data-enemy="trial-kaiser-belial"] .enemy-stage{min-height:350px}
+@keyframes kaiser-stage-breathe{
+  0%,100%{transform:translateX(-50%) translateY(2px) scale(1)}
+  28%{transform:translateX(-50%) translateY(-2px) scale(1.003)}
+  55%{transform:translateX(-50%) translateY(-5px) scale(1.006)}
+  78%{transform:translateX(-50%) translateY(-1px) scale(1.002)}
+}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active .kaiser-stage-sprite{animation-play-state:paused}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-final-corridor .battle-frame[data-mode="arena"]{height:420px}
+@media (max-width:780px){
+  #enemy-sprite[data-enemy="trial-kaiser-belial"]{width:330px;height:260px}
+  #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:252px;max-width:340px}
+  #stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:244px}
+  #stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:264px}
+  #stage[data-enemy="trial-kaiser-belial"] .enemy-stage{min-height:270px}
+}
+
+
+/* v2.8.2 — Kaiser Belial layout, dialogue and sprite integration polish. */
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active .enemy-stage{
+  opacity:0!important;
+  height:0!important;
+  min-height:0!important;
+  max-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  transform:none!important;
+  pointer-events:none!important;
+}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active{row-gap:12px;gap:12px}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark{
+  transition:opacity .11s linear,transform .11s ease-out;
+  animation:none!important;
+}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark.show{
+  opacity:1;
+  transform:translate(0,0);
+  animation:none!important;
+}
+#enemy-sprite[data-enemy="trial-kaiser-belial"]{width:486px;height:358px}
+#enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{
+  height:352px;max-width:480px;bottom:-9px;opacity:.965;
+  filter:brightness(.82) saturate(.83) contrast(1.12) drop-shadow(0 14px 11px rgba(0,0,0,.68)) drop-shadow(0 0 14px rgba(141,0,28,.22));
+  animation:kaiser-stage-breathe-v282 4.15s cubic-bezier(.45,.04,.55,.96) infinite;
+}
+#stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:340px;max-width:452px}
+#stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:366px;max-width:486px;filter:brightness(.81) saturate(.86) contrast(1.13) drop-shadow(0 15px 12px rgba(0,0,0,.7)) drop-shadow(0 0 15px rgba(255,32,58,.25))}
+@keyframes kaiser-stage-breathe-v282{
+  0%,100%{transform:translateX(-50%) translateY(3px) scale(1)}
+  22%{transform:translateX(-50%) translateY(1px) scale(1.001)}
+  48%{transform:translateX(-50%) translateY(-4px) scale(1.004)}
+  72%{transform:translateX(-50%) translateY(-1px) scale(1.002)}
+}
+@media (max-width:780px){
+  #stage[data-enemy="trial-kaiser-belial"] .kaiser-bark{left:50%;transform:translateX(-50%) translateY(4px)}
+  #stage[data-enemy="trial-kaiser-belial"] .kaiser-bark.show{transform:translateX(-50%) translateY(0)}
+  #enemy-sprite[data-enemy="trial-kaiser-belial"]{width:350px;height:276px}
+  #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:270px;max-width:360px}
+  #stage[data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:260px}
+  #stage[data-kaiser-form="arc"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{height:282px}
+}
+
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active{
+  grid-template-rows:auto 0 minmax(0,auto) auto auto!important;
+  min-height:0;
+}
+
+
+/* v2.8.3 — Kaiser dialogue visibility, slash telegraph, and post-chase motion. */
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark{
+  z-index:35!important;
+  opacity:0;
+  transition:opacity .1s linear,transform .1s ease-out;
+  animation:none!important;
+}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-bark.show{opacity:1!important;animation:none!important}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active .kaiser-bark{opacity:0!important}
+#stage[data-enemy="trial-kaiser-belial"] .kaiser-combat-bark{
+  position:absolute;
+  left:16px;
+  top:14px;
+  z-index:45;
+  max-width:min(620px,72%);
+  padding:8px 12px 9px;
+  border-left:3px solid rgba(255,68,87,.96);
+  background:linear-gradient(90deg,rgba(2,2,5,.94),rgba(2,2,5,.78),rgba(2,2,5,.12));
+  color:#fff;
+  font-size:clamp(15px,1.6vw,19px);
+  font-weight:650;
+  line-height:1.45;
+  letter-spacing:.025em;
+  text-shadow:0 1px 0 #000,0 0 8px rgba(255,255,255,.08);
+  opacity:0;
+  transform:translateY(-4px);
+  pointer-events:none;
+}
+#stage[data-enemy="trial-kaiser-belial"] .battle-frame:not([data-mode="arena"]) .kaiser-combat-bark{display:none}
+#stage[data-enemy="trial-kaiser-belial"] .battle-frame[data-mode="arena"] .kaiser-combat-bark.show{
+  display:block;opacity:1;transform:translateY(0);
+}
+#stage[data-enemy="trial-kaiser-belial"][data-kaiser-form="nocloak"] #enemy-sprite[data-enemy="trial-kaiser-belial"] .kaiser-stage-sprite{
+  animation:kaiser-stage-breathe-nocloak-v283 2.85s cubic-bezier(.42,.04,.58,.96) infinite;
+}
+@keyframes kaiser-stage-breathe-nocloak-v283{
+  0%,100%{transform:translateX(-50%) translate(-2px,4px) rotate(-.35deg) scale(1)}
+  24%{transform:translateX(-50%) translate(3px,-1px) rotate(.35deg) scale(1.004)}
+  52%{transform:translateX(-50%) translate(-4px,-6px) rotate(-.25deg) scale(1.008)}
+  76%{transform:translateX(-50%) translate(3px,-1px) rotate(.28deg) scale(1.003)}
+}
+@media (max-width:780px){
+  #stage[data-enemy="trial-kaiser-belial"] .kaiser-combat-bark{left:10px;top:9px;max-width:88%;font-size:14px;padding:7px 9px}
+}
+
+
+/* v2.8.4 — Kaiser layout occupancy regression fix. */
+#stage[data-enemy="trial-kaiser-belial"] > .atmosphere,
+#stage[data-enemy="trial-kaiser-belial"] > .horizon{position:absolute!important}
+#stage[data-enemy="trial-kaiser-belial"] > .showcase-tools{position:absolute!important;top:15px;right:15px;left:auto!important}
+#stage[data-enemy="trial-kaiser-belial"]:not(.kaiser-arena-active){
+  grid-template-rows:auto minmax(225px,1fr) auto auto auto!important;
+}
+#stage[data-enemy="trial-kaiser-belial"].kaiser-arena-active{
+  grid-template-rows:auto 0 minmax(0,auto) auto auto!important;
+}
+@media (max-width:780px){
+  #stage[data-enemy="trial-kaiser-belial"] > .showcase-tools{top:10px;right:10px}
+}
+
+/* v2.8.5 — Kaiser phase hand-off whiteout. */
+#stage[data-enemy="trial-kaiser-belial"] > .kaiser-stage-whiteout{
+  position:absolute!important;
+  inset:0;
+  z-index:80;
+  pointer-events:none;
+  opacity:0;
+  background:#fff;
+  mix-blend-mode:screen;
+}
+#stage[data-enemy="trial-kaiser-belial"] > .kaiser-stage-whiteout.show{
+  animation:kaiser-stage-whiteout-v285 var(--kaiser-whiteout-ms,900ms) ease-out both;
+}
+@keyframes kaiser-stage-whiteout-v285{
+  0%{opacity:.96}
+  24%{opacity:1}
+  58%{opacity:.86}
+  100%{opacity:0}
+}
+
+/* Preserved Light Memory Terminal */
 .memory-terminal{min-height:100vh;padding:clamp(18px,4vw,54px);color:#ecf7ff;background:radial-gradient(circle at 8% 0,#193b5a 0,transparent 30%),radial-gradient(circle at 92% 12%,#49295b 0,transparent 34%),linear-gradient(145deg,#030914,#090b20 58%,#170b1d);font-family:Inter,"Microsoft YaHei",sans-serif}.memory-terminal[hidden]{display:none}.memory-terminal-shell{width:min(1180px,100%);margin:auto;overflow:hidden;border:1px solid #75e6ff66;border-radius:36px;background:#071221e8;box-shadow:0 30px 100px #000a,inset 0 1px #ffffff10}.memory-terminal-hero{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;padding:34px clamp(24px,5vw,58px);background:linear-gradient(120deg,#081a2b,#10152f 64%,#28152d)}.memory-terminal-seal{display:grid;place-items:center;width:72px;height:72px;border-radius:50%;background:conic-gradient(#62efff,#8170ff,#ff65bc,#62efff);box-shadow:0 0 38px #63dcff55}.memory-terminal-seal i{width:45px;height:45px;border:12px solid #e8fbff;border-radius:50%;background:#071221}.memory-terminal-hero span,.memory-section-heading span{color:#6ceaff;font:900 11px ui-monospace,monospace;letter-spacing:.22em}.memory-terminal-hero h1{margin:8px 0 6px;font-size:clamp(28px,5vw,52px)}.memory-terminal-hero p,.memory-section-heading p{margin:0;color:#91a6c2;line-height:1.7}.memory-terminal-hero>strong{color:#ffd879;font-size:clamp(28px,5vw,48px)}.memory-tabs{display:flex;gap:8px;padding:14px clamp(20px,4vw,48px);overflow:auto;border-block:1px solid #ffffff10;background:#050d19}.memory-tabs button,.memory-terminal-footer button,.memory-data-actions button,.memory-data-actions label{border:0;border-radius:999px;padding:11px 18px;color:#9eb2ce;background:transparent;font-weight:800;cursor:pointer;white-space:nowrap}.memory-tabs button.active{color:#07111c;background:linear-gradient(110deg,#65eaff,#bd8aff)}.memory-terminal-body{padding:clamp(24px,5vw,56px)}.memory-section-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:26px}.memory-section-heading h2{margin:8px 0 0;font-size:clamp(25px,4vw,40px)}.memory-section-heading p{max-width:520px}.memory-route-grid,.memory-ultra-grid,.memory-trial-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.memory-route-card,.memory-ultra-card,.memory-trial-card{position:relative;overflow:hidden;min-height:190px;padding:24px;border:1px solid #ffffff16;border-radius:26px;background:linear-gradient(145deg,#0d1c2c,#0c1224);box-shadow:0 16px 40px #0005}.memory-route-card::before,.memory-ultra-card::before,.memory-trial-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 92% 0,var(--accent,#62eaff) 0,transparent 35%);opacity:.17;pointer-events:none}.memory-route-card h3,.memory-ultra-card h3,.memory-trial-card h3{position:relative;margin:8px 0 5px;font-size:23px}.memory-route-card>span,.memory-ultra-card>span,.memory-trial-card>span{position:relative;color:var(--accent,#62eaff);font:900 10px ui-monospace,monospace;letter-spacing:.18em}.memory-stamps{position:relative;display:grid;gap:9px;margin-top:20px}.memory-battle-row{display:grid;grid-template-columns:16px 1fr auto;gap:10px;align-items:center;padding:11px 13px;border-radius:14px;background:#ffffff08}.memory-battle-row i{width:10px;height:10px;border-radius:50%;background:#26364c}.memory-battle-row.done i{background:var(--accent,#62eaff);box-shadow:0 0 14px var(--accent,#62eaff)}.memory-battle-row button,.memory-trial-card button{border:1px solid #ffffff1f;border-radius:999px;padding:7px 12px;color:#e9f8ff;background:#ffffff0b;font-weight:800;cursor:pointer}.memory-battle-row button:disabled,.memory-trial-card button:disabled{opacity:.35;cursor:not-allowed}.memory-ultra-card.locked{filter:saturate(.2);opacity:.55}.memory-ultra-card b{position:relative;display:block;margin-top:22px;color:#91a6c2}.memory-ultra-select{display:flex;align-items:center;gap:14px;width:max-content;max-width:100%;margin:0 0 22px;padding:11px 16px;border-radius:16px;background:#ffffff0a;font-weight:800}.memory-ultra-select select{min-width:220px;border:1px solid #ffffff18;border-radius:12px;padding:9px 12px;color:#eef8ff;background:#081322}.memory-trial-card p{position:relative;min-height:48px;color:#92a7c2;line-height:1.65}.memory-trial-card button{position:relative;margin-top:12px;padding:11px 18px}.memory-data-actions{display:flex;flex-wrap:wrap;gap:12px}.memory-data-actions button,.memory-data-actions label{display:inline-flex;align-items:center;color:#06121d;background:linear-gradient(110deg,#6ceaff,#bd8aff)}.memory-data-actions input{display:none}.memory-data-state{color:#8fe7cf}.memory-terminal-footer{display:flex;justify-content:space-between;align-items:center;padding:15px 30px;border-top:1px solid #ffffff10;color:#7187a4;font:800 10px ui-monospace,monospace;letter-spacing:.13em}.memory-terminal-footer button{color:#dcedff;background:#ffffff0a}.memory-terminal button:focus-visible,.memory-terminal select:focus-visible,.memory-terminal label:focus-within{outline:3px solid #fff;outline-offset:3px}@media(max-width:720px){.memory-terminal{padding:0}.memory-terminal-shell{border-radius:0}.memory-terminal-hero{grid-template-columns:auto 1fr;padding:25px 20px}.memory-terminal-hero>strong{grid-column:1/-1}.memory-terminal-seal{width:54px;height:54px}.memory-terminal-seal i{width:34px;height:34px;border-width:9px}.memory-section-heading{align-items:flex-start;flex-direction:column}.memory-route-grid,.memory-ultra-grid,.memory-trial-grid{grid-template-columns:1fr}.memory-terminal-footer{align-items:flex-start;flex-direction:column;gap:8px}}

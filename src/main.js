@@ -12,7 +12,7 @@ let activeProgressContext = null;
 let returnToTerminal = false;
 const handledRequestIds = new Set();
 const UBR_PROTOCOL_VERSION = "1.0.0";
-const UBR_RUNTIME_VERSION = "2.8.0-light-memory-terminal";
+const UBR_RUNTIME_VERSION = "2.8.6-light-memory-terminal";
 const routeRegistry = Object.freeze({
   tiga: { playerId: "tiga", battles: ["golza", "kyrieloid", "gatanothor"] },
   ginga: { playerId: "ginga", battles: ["thunder-darambia", "super-grand-king", "dark-lugiel"] },

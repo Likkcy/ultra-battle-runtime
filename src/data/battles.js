@@ -2288,6 +2288,100 @@ export const originalBelialBattleConfig = {
   arena: { durationMs: 11600 }
 };
 
+
+export const trialKaiserBelialBattleConfig = {
+  id: "trial-kaiser-belial",
+  meta: {
+    key: "trial-kaiser-belial",
+    route: "trial",
+    title: "恺撒贝利亚",
+    subtitle: "银河帝国皇帝",
+    mode: "披风皇帝 / 无框追猎 / 电弧贝利亚",
+    difficulty: "TRIAL FINAL",
+    blurb: "三形态完整试炼。披风支配、终极格斗仪近战、无框星海追逐、电弧灾变与最终矿石长廊全部由玩家亲自打完。"
+  },
+  player: { ...basePlayer, actions: [] },
+  enemy: {
+    id: "trial-kaiser-belial",
+    name: "恺撒贝利亚",
+    subtitle: "银河帝国皇帝 · 披风",
+    encounterMode: "trial_kaiser_belial",
+    boss: true,
+    maxHp: 2850,
+    hp: 2850,
+    attack: 27,
+    defense: 8,
+    rage: .34,
+    defenseMode: "kaiser",
+    patternSet: "trial_kaiser_belial",
+    intro: [
+      "红色披风垂在身后。恺撒贝利亚没有急着抬起终极格斗仪。",
+      "他只是看了你一眼。"
+    ],
+    phases: [
+      { id:"emperor", threshold:1, title:"EMPEROR", subtitle:"恺撒贝利亚 · 披风", durationMs:12800, text:[] },
+      { id:"unbound", threshold:.66, title:"UNBOUND", subtitle:"恺撒贝利亚 · 无披风", durationMs:14200, text:[] },
+      { id:"arc", threshold:.30, title:"ARC BELIAL", subtitle:"电弧贝利亚 · 最终形态", durationMs:15800, text:[] }
+    ],
+    kaiserBarks: {
+      roundStart: [
+        "还敢站在这里？赝品。",
+        "来。让本皇看看你还能躲几次。",
+        "别把侥幸当成实力。",
+        "冒牌货也敢走到本皇面前？"
+      ],
+      attacked: [
+        "哼。就这点力气？",
+        "打中了，然后呢？",
+        "别急着高兴，赝品。",
+        "很好。至少你还知道反抗。"
+      ],
+      playerHit: [
+        "太慢了。",
+        "这就是你的极限？",
+        "跪下。",
+        "本皇甚至不需要第二次提醒。"
+      ],
+      roundEnd: [
+        "还活着？那就继续。",
+        "不错。可惜离赢还早。",
+        "这次躲过去了，赝品。",
+        "别停。本皇还没尽兴。"
+      ],
+      roundClean: [
+        "哼……倒是会躲。",
+        "一次没碰到你？有点意思。",
+        "继续。下一轮就没这么轻松了。"
+      ],
+      item: [
+        "继续拖时间吧。",
+        "连站着都需要那种东西？",
+        "尽管恢复。本皇等得起。"
+      ],
+      phase2: [
+        "披风已经碍事了。",
+        "接下来，本皇亲自把你撕碎。"
+      ],
+      phase3: [
+        "很好……逼到这一步了。",
+        "那就连你和这片宇宙一起吞掉。"
+      ],
+      finale: [
+        "冲过来。",
+        "看看你能不能碰到本皇的心脏。"
+      ]
+    },
+    flavorText: [
+      "披风下摆缓慢起伏，恺撒贝利亚的视线始终停在你身上。",
+      "终极格斗仪在他手中转过半圈。",
+      "他没有后退。"
+    ],
+    responses: ["恺撒贝利亚抬起了眼。"],
+    victoryText: "最后一块艾美拉鲁矿石在冲刺中粉碎。你撞穿核心，电弧贝利亚的心脏在长廊尽头炸成白光。"
+  },
+  arena: { durationMs: 12800 }
+};
+
 export const battleRegistry = {
   golza: golzaBattleConfig,
   zetton: zettonBattleConfig,
@@ -2310,7 +2404,8 @@ export const battleRegistry = {
   "original-greeza": originalGreezaBattleConfig,
   "original-grand-king": originalGrandKingBattleConfig,
   "original-five-king": originalFiveKingBattleConfig,
-  "original-belial": originalBelialBattleConfig
+  "original-belial": originalBelialBattleConfig,
+  "trial-kaiser-belial": trialKaiserBelialBattleConfig
 };
 
 export const battleCatalog = Object.values(battleRegistry).map((battle) => ({
